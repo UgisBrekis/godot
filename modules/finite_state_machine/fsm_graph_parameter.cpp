@@ -66,8 +66,7 @@ void FiniteStateMachineGraphParameter::_bind_methods() {
 }
 
 FiniteStateMachineGraphParameter::FiniteStateMachineGraphParameter() {
-    set_type(Variant::BOOL);
-    set_value(false);
+    
 }
 
 FiniteStateMachineGraphParameter::~FiniteStateMachineGraphParameter(){
