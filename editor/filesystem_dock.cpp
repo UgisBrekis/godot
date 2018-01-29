@@ -1803,7 +1803,7 @@ FileSystemDock::FileSystemDock(EditorNode *p_editor) {
 	folder_options = memnew(PopupMenu);
 	add_child(folder_options);
 
-	split_box = memnew(VSplitContainer);
+	split_box = memnew(HSplitContainer);
 	split_box->set_v_size_flags(SIZE_EXPAND_FILL);
 	add_child(split_box);
 
@@ -1812,7 +1812,7 @@ FileSystemDock::FileSystemDock(EditorNode *p_editor) {
 	tree->set_hide_root(true);
 	tree->set_drag_forwarding(this);
 	tree->set_allow_rmb_select(true);
-	tree->set_custom_minimum_size(Size2(0, 200 * EDSCALE));
+	tree->set_custom_minimum_size(Size2(50 * EDSCALE, 0));
 	split_box->add_child(tree);
 
 	tree->connect("item_edited", this, "_favorite_toggled");
@@ -1822,6 +1822,7 @@ FileSystemDock::FileSystemDock(EditorNode *p_editor) {
 
 	file_list_vb = memnew(VBoxContainer);
 	file_list_vb->set_v_size_flags(SIZE_EXPAND_FILL);
+	file_list_vb->set_custom_minimum_size(Size2(50 * EDSCALE, 0));
 	split_box->add_child(file_list_vb);
 
 	path_hb = memnew(HBoxContainer);

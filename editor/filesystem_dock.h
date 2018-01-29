@@ -92,7 +92,7 @@ private:
 
 	VBoxContainer *scanning_vb;
 	ProgressBar *scanning_progress;
-	VSplitContainer *split_box;
+	HSplitContainer *split_box;
 	VBoxContainer *file_list_vb;
 
 	EditorNode *editor;
