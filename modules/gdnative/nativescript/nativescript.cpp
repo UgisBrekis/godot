@@ -697,11 +697,21 @@ Variant NativeScriptInstance::call(const StringName &p_method, const Variant **p
 		Map<StringName, NativeScriptDesc::Method>::Element *E = script_data->methods.find(p_method);
 		if (E) {
 			godot_variant result;
+
+#ifdef DEBUG_ENABLED
+			current_method_call = p_method;
+#endif
+
 			result = E->get().method.method((godot_object *)owner,
 					E->get().method.method_data,
 					userdata,
 					p_argcount,
 					(godot_variant **)p_args);
+
+#ifdef DEBUG_ENABLED
+			current_method_call = "";
+#endif
+
 			Variant res = *(Variant *)&result;
 			godot_variant_destroy(&result);
 			r_error.error = Variant::CallError::CALL_OK;
@@ -716,6 +726,15 @@ Variant NativeScriptInstance::call(const StringName &p_method, const Variant **p
 }
 
 void NativeScriptInstance::notification(int p_notification) {
+#ifdef DEBUG_ENABLED
+	if (p_notification == MainLoop::NOTIFICATION_CRASH) {
+		if (current_method_call != StringName("")) {
+			ERR_PRINTS("NativeScriptInstance detected crash on method: " + current_method_call);
+			current_method_call = "";
+		}
+	}
+#endif
+
 	Variant value = p_notification;
 	const Variant *args[1] = { &value };
 	call_multilevel("_notification", args, 1);
@@ -747,7 +766,7 @@ Ref<Script> NativeScriptInstance::get_script() const {
 	return script;
 }
 
-NativeScriptInstance::RPCMode NativeScriptInstance::get_rpc_mode(const StringName &p_method) const {
+MultiplayerAPI::RPCMode NativeScriptInstance::get_rpc_mode(const StringName &p_method) const {
 
 	NativeScriptDesc *script_data = GET_SCRIPT_DESC();
 
@@ -757,27 +776,33 @@ NativeScriptInstance::RPCMode NativeScriptInstance::get_rpc_mode(const StringNam
 		if (E) {
 			switch (E->get().rpc_mode) {
 				case GODOT_METHOD_RPC_MODE_DISABLED:
-					return RPC_MODE_DISABLED;
+					return MultiplayerAPI::RPC_MODE_DISABLED;
 				case GODOT_METHOD_RPC_MODE_REMOTE:
-					return RPC_MODE_REMOTE;
+					return MultiplayerAPI::RPC_MODE_REMOTE;
 				case GODOT_METHOD_RPC_MODE_SYNC:
-					return RPC_MODE_SYNC;
+					return MultiplayerAPI::RPC_MODE_SYNC;
 				case GODOT_METHOD_RPC_MODE_MASTER:
-					return RPC_MODE_MASTER;
+					return MultiplayerAPI::RPC_MODE_MASTER;
 				case GODOT_METHOD_RPC_MODE_SLAVE:
-					return RPC_MODE_SLAVE;
+					return MultiplayerAPI::RPC_MODE_SLAVE;
+				case GODOT_METHOD_RPC_MODE_REMOTESYNC:
+					return MultiplayerAPI::RPC_MODE_REMOTESYNC;
+				case GODOT_METHOD_RPC_MODE_MASTERSYNC:
+					return MultiplayerAPI::RPC_MODE_MASTERSYNC;
+				case GODOT_METHOD_RPC_MODE_SLAVESYNC:
+					return MultiplayerAPI::RPC_MODE_SLAVESYNC;
 				default:
-					return RPC_MODE_DISABLED;
+					return MultiplayerAPI::RPC_MODE_DISABLED;
 			}
 		}
 
 		script_data = script_data->base_data;
 	}
 
-	return RPC_MODE_DISABLED;
+	return MultiplayerAPI::RPC_MODE_DISABLED;
 }
 
-NativeScriptInstance::RPCMode NativeScriptInstance::get_rset_mode(const StringName &p_variable) const {
+MultiplayerAPI::RPCMode NativeScriptInstance::get_rset_mode(const StringName &p_variable) const {
 
 	NativeScriptDesc *script_data = GET_SCRIPT_DESC();
 
@@ -787,24 +812,24 @@ NativeScriptInstance::RPCMode NativeScriptInstance::get_rset_mode(const StringNa
 		if (E) {
 			switch (E.get().rset_mode) {
 				case GODOT_METHOD_RPC_MODE_DISABLED:
-					return RPC_MODE_DISABLED;
+					return MultiplayerAPI::RPC_MODE_DISABLED;
 				case GODOT_METHOD_RPC_MODE_REMOTE:
-					return RPC_MODE_REMOTE;
+					return MultiplayerAPI::RPC_MODE_REMOTE;
 				case GODOT_METHOD_RPC_MODE_SYNC:
-					return RPC_MODE_SYNC;
+					return MultiplayerAPI::RPC_MODE_SYNC;
 				case GODOT_METHOD_RPC_MODE_MASTER:
-					return RPC_MODE_MASTER;
+					return MultiplayerAPI::RPC_MODE_MASTER;
 				case GODOT_METHOD_RPC_MODE_SLAVE:
-					return RPC_MODE_SLAVE;
+					return MultiplayerAPI::RPC_MODE_SLAVE;
 				default:
-					return RPC_MODE_DISABLED;
+					return MultiplayerAPI::RPC_MODE_DISABLED;
 			}
 		}
 
 		script_data = script_data->base_data;
 	}
 
-	return RPC_MODE_DISABLED;
+	return MultiplayerAPI::RPC_MODE_DISABLED;
 }
 
 ScriptLanguage *NativeScriptInstance::get_language() {

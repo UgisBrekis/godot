@@ -348,6 +348,11 @@ bool _OS::get_borderless_window() const {
 	return OS::get_singleton()->get_borderless_window();
 }
 
+void _OS::set_ime_active(const bool p_active) {
+
+	return OS::get_singleton()->set_ime_active(p_active);
+}
+
 void _OS::set_ime_position(const Point2 &p_pos) {
 
 	return OS::get_singleton()->set_ime_position(p_pos);
@@ -399,7 +404,7 @@ Error _OS::shell_open(String p_uri) {
 
 int _OS::execute(const String &p_path, const Vector<String> &p_arguments, bool p_blocking, Array p_output) {
 
-	OS::ProcessID pid;
+	OS::ProcessID pid = -2;
 	List<String> args;
 	for (int i = 0; i < p_arguments.size(); i++)
 		args.push_back(p_arguments[i]);
@@ -412,6 +417,7 @@ int _OS::execute(const String &p_path, const Vector<String> &p_arguments, bool p
 	else
 		return pid;
 }
+
 Error _OS::kill(int p_pid) {
 
 	return OS::get_singleton()->kill(p_pid);
@@ -793,6 +799,11 @@ uint32_t _OS::get_ticks_msec() const {
 	return OS::get_singleton()->get_ticks_msec();
 }
 
+uint64_t _OS::get_ticks_usec() const {
+
+	return OS::get_singleton()->get_ticks_usec();
+}
+
 uint32_t _OS::get_splash_tick_msec() const {
 
 	return OS::get_singleton()->get_splash_tick_msec();
@@ -1125,6 +1136,7 @@ void _OS::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("delay_usec", "usec"), &_OS::delay_usec);
 	ClassDB::bind_method(D_METHOD("delay_msec", "msec"), &_OS::delay_msec);
 	ClassDB::bind_method(D_METHOD("get_ticks_msec"), &_OS::get_ticks_msec);
+	ClassDB::bind_method(D_METHOD("get_ticks_usec"), &_OS::get_ticks_usec);
 	ClassDB::bind_method(D_METHOD("get_splash_tick_msec"), &_OS::get_splash_tick_msec);
 	ClassDB::bind_method(D_METHOD("get_locale"), &_OS::get_locale);
 	ClassDB::bind_method(D_METHOD("get_latin_keyboard_variant"), &_OS::get_latin_keyboard_variant);
@@ -2710,6 +2722,26 @@ Dictionary _Engine::get_version_info() const {
 	return Engine::get_singleton()->get_version_info();
 }
 
+Dictionary _Engine::get_author_info() const {
+	return Engine::get_singleton()->get_author_info();
+}
+
+Array _Engine::get_copyright_info() const {
+	return Engine::get_singleton()->get_copyright_info();
+}
+
+Dictionary _Engine::get_donor_info() const {
+	return Engine::get_singleton()->get_donor_info();
+}
+
+Dictionary _Engine::get_license_info() const {
+	return Engine::get_singleton()->get_license_info();
+}
+
+String _Engine::get_license_text() const {
+	return Engine::get_singleton()->get_license_text();
+}
+
 bool _Engine::is_in_physics_frame() const {
 	return Engine::get_singleton()->is_in_physics_frame();
 }
@@ -2752,6 +2784,11 @@ void _Engine::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_main_loop"), &_Engine::get_main_loop);
 
 	ClassDB::bind_method(D_METHOD("get_version_info"), &_Engine::get_version_info);
+	ClassDB::bind_method(D_METHOD("get_author_info"), &_Engine::get_author_info);
+	ClassDB::bind_method(D_METHOD("get_copyright_info"), &_Engine::get_copyright_info);
+	ClassDB::bind_method(D_METHOD("get_donor_info"), &_Engine::get_donor_info);
+	ClassDB::bind_method(D_METHOD("get_license_info"), &_Engine::get_license_info);
+	ClassDB::bind_method(D_METHOD("get_license_text"), &_Engine::get_license_text);
 
 	ClassDB::bind_method(D_METHOD("is_in_physics_frame"), &_Engine::is_in_physics_frame);
 

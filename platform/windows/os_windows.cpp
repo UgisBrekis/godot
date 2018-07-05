@@ -70,6 +70,30 @@ __attribute__((visibility("default"))) DWORD NvOptimusEnablement = 0x00000001;
 #define WM_TOUCH 576
 #endif
 
+typedef struct {
+	int count;
+	int screen;
+	Size2 size;
+} EnumSizeData;
+
+typedef struct {
+	int count;
+	int screen;
+	Point2 pos;
+} EnumPosData;
+
+static BOOL CALLBACK _MonitorEnumProcSize(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData) {
+
+	EnumSizeData *data = (EnumSizeData *)dwData;
+	if (data->count == data->screen) {
+		data->size.x = lprcMonitor->right - lprcMonitor->left;
+		data->size.y = lprcMonitor->bottom - lprcMonitor->top;
+	}
+
+	data->count++;
+	return TRUE;
+}
+
 static String format_error_message(DWORD id) {
 
 	LPWSTR messageBuffer = NULL;
@@ -455,6 +479,13 @@ LRESULT OS_Windows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		} break;
 		case WM_LBUTTONDOWN:
 		case WM_LBUTTONUP:
+			if (input->is_emulating_mouse_from_touch()) {
+				// Universal translation enabled; ignore OS translations for left button
+				LPARAM extra = GetMessageExtraInfo();
+				if (IsPenEvent(extra)) {
+					break;
+				}
+			}
 		case WM_MBUTTONDOWN:
 		case WM_MBUTTONUP:
 		case WM_RBUTTONDOWN:
@@ -466,14 +497,6 @@ LRESULT OS_Windows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		case WM_RBUTTONDBLCLK:
 			/*case WM_XBUTTONDOWN:
 		case WM_XBUTTONUP: */ {
-
-				if (input->is_emulating_mouse_from_touch()) {
-					// Universal translation enabled; ignore OS translation
-					LPARAM extra = GetMessageExtraInfo();
-					if (IsPenEvent(extra)) {
-						break;
-					}
-				}
 
 				Ref<InputEventMouseButton> mb;
 				mb.instance();
@@ -628,21 +651,7 @@ LRESULT OS_Windows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 				video_mode.height = window_h;
 			} else {
 				preserve_window_size = false;
-				int w = video_mode.width;
-				int h = video_mode.height;
-
-				RECT rect;
-				GetWindowRect(hWnd, &rect);
-
-				if (video_mode.borderless_window == false) {
-					RECT crect;
-					GetClientRect(hWnd, &crect);
-
-					w += (rect.right - rect.left) - (crect.right - crect.left);
-					h += (rect.bottom - rect.top) - (crect.bottom - crect.top);
-				}
-
-				MoveWindow(hWnd, rect.left, rect.top, w, h, TRUE);
+				set_window_size(Size2(video_mode.width, video_mode.height));
 			}
 			if (wParam == SIZE_MAXIMIZED) {
 				maximized = true;
@@ -756,13 +765,18 @@ LRESULT OS_Windows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 				if (GetTouchInputInfo((HTOUCHINPUT)lParam, cInputs, pInputs, sizeof(TOUCHINPUT))) {
 					for (UINT i = 0; i < cInputs; i++) {
 						TOUCHINPUT ti = pInputs[i];
+						POINT touch_pos = {
+							TOUCH_COORD_TO_PIXEL(ti.x),
+							TOUCH_COORD_TO_PIXEL(ti.y),
+						};
+						ScreenToClient(hWnd, &touch_pos);
 						//do something with each touch input entry
 						if (ti.dwFlags & TOUCHEVENTF_MOVE) {
 
-							_drag_event(ti.x / 100.0f, ti.y / 100.0f, ti.dwID);
+							_drag_event(touch_pos.x, touch_pos.y, ti.dwID);
 						} else if (ti.dwFlags & (TOUCHEVENTF_UP | TOUCHEVENTF_DOWN)) {
 
-							_touch_event(ti.dwFlags & TOUCHEVENTF_DOWN, ti.x / 100.0f, ti.y / 100.0f, ti.dwID);
+							_touch_event(ti.dwFlags & TOUCHEVENTF_DOWN, touch_pos.x, touch_pos.y, ti.dwID);
 						};
 					}
 					bHandled = TRUE;
@@ -990,6 +1004,7 @@ Error OS_Windows::initialize(const VideoMode &p_desired, int p_video_driver, int
 	WNDCLASSEXW wc;
 
 	if (is_hidpi_allowed()) {
+		print_line("hidpi aware?");
 		HMODULE Shcore = LoadLibraryW(L"Shcore.dll");
 
 		if (Shcore != NULL) {
@@ -1034,12 +1049,23 @@ Error OS_Windows::initialize(const VideoMode &p_desired, int p_video_driver, int
 	pre_fs_valid = true;
 	if (video_mode.fullscreen) {
 
+		/* this returns DPI unaware size, commenting
 		DEVMODE current;
 		memset(&current, 0, sizeof(current));
 		EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &current);
 
 		WindowRect.right = current.dmPelsWidth;
 		WindowRect.bottom = current.dmPelsHeight;
+
+		*/
+
+		EnumSizeData data = { 0, 0, Size2() };
+		EnumDisplayMonitors(NULL, NULL, _MonitorEnumProcSize, (LPARAM)&data);
+
+		WindowRect.right = data.size.width;
+		WindowRect.bottom = data.size.height;
+
+		print_line("wr right " + itos(WindowRect.right) + ", " + itos(WindowRect.bottom));
 
 		/*  DEVMODE dmScreenSettings;
 		memset(&dmScreenSettings,0,sizeof(dmScreenSettings));
@@ -1195,6 +1221,15 @@ Error OS_Windows::initialize(const VideoMode &p_desired, int p_video_driver, int
 	if (p_desired.layered_splash) {
 		set_window_per_pixel_transparency_enabled(true);
 	}
+
+	// IME
+	im_himc = ImmGetContext(hWnd);
+	ImmReleaseContext(hWnd, im_himc);
+
+	im_position = Vector2();
+
+	set_ime_active(false);
+
 	return OK;
 }
 
@@ -1456,12 +1491,6 @@ void OS_Windows::set_current_screen(int p_screen) {
 	set_window_position(ofs + get_screen_position(p_screen));
 }
 
-typedef struct {
-	int count;
-	int screen;
-	Point2 pos;
-} EnumPosData;
-
 static BOOL CALLBACK _MonitorEnumProcPos(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData) {
 
 	EnumPosData *data = (EnumPosData *)dwData;
@@ -1479,24 +1508,6 @@ Point2 OS_Windows::get_screen_position(int p_screen) const {
 	EnumPosData data = { 0, p_screen == -1 ? get_current_screen() : p_screen, Point2() };
 	EnumDisplayMonitors(NULL, NULL, _MonitorEnumProcPos, (LPARAM)&data);
 	return data.pos;
-}
-
-typedef struct {
-	int count;
-	int screen;
-	Size2 size;
-} EnumSizeData;
-
-static BOOL CALLBACK _MonitorEnumProcSize(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData) {
-
-	EnumSizeData *data = (EnumSizeData *)dwData;
-	if (data->count == data->screen) {
-		data->size.x = lprcMonitor->right - lprcMonitor->left;
-		data->size.y = lprcMonitor->bottom - lprcMonitor->top;
-	}
-
-	data->count++;
-	return TRUE;
 }
 
 Size2 OS_Windows::get_screen_size(int p_screen) const {
@@ -1558,15 +1569,15 @@ Size2 OS_Windows::get_real_window_size() const {
 }
 void OS_Windows::set_window_size(const Size2 p_size) {
 
-	video_mode.width = p_size.width;
-	video_mode.height = p_size.height;
+	int w = p_size.width;
+	int h = p_size.height;
+
+	video_mode.width = w;
+	video_mode.height = h;
 
 	if (video_mode.fullscreen) {
 		return;
 	}
-
-	int w = p_size.width;
-	int h = p_size.height;
 
 	RECT rect;
 	GetWindowRect(hWnd, &rect);
@@ -2091,11 +2102,13 @@ void OS_Windows::set_custom_mouse_cursor(const RES &p_cursor, CursorShape p_shap
 
 		image = texture->get_data();
 
+		ERR_FAIL_COND(!image.is_valid());
+
 		UINT image_size = texture_size.width * texture_size.height;
 		UINT size = sizeof(UINT) * image_size;
 
 		// Create the BITMAP with alpha channel
-		COLORREF *buffer = (COLORREF *)malloc(sizeof(COLORREF) * image_size);
+		COLORREF *buffer = (COLORREF *)memalloc(sizeof(COLORREF) * image_size);
 
 		image->lock();
 		for (UINT index = 0; index < image_size; index++) {
@@ -2122,6 +2135,8 @@ void OS_Windows::set_custom_mouse_cursor(const RES &p_cursor, CursorShape p_shap
 		GetMaskBitmaps(bitmap, clrTransparent, hAndMask, hXorMask);
 
 		if (NULL == hAndMask || NULL == hXorMask) {
+			memfree(buffer);
+			DeleteObject(bitmap);
 			return;
 		}
 
@@ -2146,6 +2161,9 @@ void OS_Windows::set_custom_mouse_cursor(const RES &p_cursor, CursorShape p_shap
 		if (hXorMask != NULL) {
 			DeleteObject(hXorMask);
 		}
+
+		memfree(buffer);
+		DeleteObject(bitmap);
 	} else {
 		// Reset to default system cursor
 		cursors[p_shape] = NULL;
@@ -2216,10 +2234,6 @@ Error OS_Windows::execute(const String &p_path, const List<String> &p_arguments,
 			argss += String(" \"") + E->get() + "\"";
 		}
 
-		//print_line("ARGS: "+argss);
-		//argss+"\"";
-		//argss+=" 2>nul";
-
 		FILE *f = _wpopen(argss.c_str(), L"r");
 
 		ERR_FAIL_COND_V(!f, ERR_CANT_OPEN);
@@ -2246,15 +2260,12 @@ Error OS_Windows::execute(const String &p_path, const List<String> &p_arguments,
 		I = I->next();
 	};
 
-	//cmdline+="\"";
-
 	ProcessInfo pi;
 	ZeroMemory(&pi.si, sizeof(pi.si));
 	pi.si.cb = sizeof(pi.si);
 	ZeroMemory(&pi.pi, sizeof(pi.pi));
 	LPSTARTUPINFOW si_w = (LPSTARTUPINFOW)&pi.si;
 
-	print_line("running cmdline: " + cmdline);
 	Vector<CharType> modstr; //windows wants to change this no idea why
 	modstr.resize(cmdline.size());
 	for (int i = 0; i < cmdline.size(); i++)
@@ -2673,13 +2684,29 @@ String OS_Windows::get_unique_id() const {
 	return String(HwProfInfo.szHwProfileGuid);
 }
 
+void OS_Windows::set_ime_active(const bool p_active) {
+
+	if (p_active) {
+		ImmAssociateContext(hWnd, im_himc);
+
+		set_ime_position(im_position);
+	} else {
+		ImmAssociateContext(hWnd, (HIMC)0);
+	}
+}
+
 void OS_Windows::set_ime_position(const Point2 &p_pos) {
 
+	im_position = p_pos;
+
 	HIMC himc = ImmGetContext(hWnd);
+	if (himc == (HIMC)0)
+		return;
+
 	COMPOSITIONFORM cps;
 	cps.dwStyle = CFS_FORCE_POSITION;
-	cps.ptCurrentPos.x = p_pos.x;
-	cps.ptCurrentPos.y = p_pos.y;
+	cps.ptCurrentPos.x = im_position.x;
+	cps.ptCurrentPos.y = im_position.y;
 	ImmSetCompositionWindow(himc, &cps);
 	ImmReleaseContext(hWnd, himc);
 }

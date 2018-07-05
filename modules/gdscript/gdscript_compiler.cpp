@@ -34,7 +34,7 @@
 
 bool GDScriptCompiler::_is_class_member_property(CodeGen &codegen, const StringName &p_name) {
 
-	if (!codegen.function_node || codegen.function_node->_static)
+	if (codegen.function_node && codegen.function_node->_static)
 		return false;
 
 	if (codegen.stack_identifiers.has(p_name))
@@ -737,6 +737,9 @@ int GDScriptCompiler::_parse_expression(CodeGen &codegen, const GDScriptParser::
 				//unary operators
 				case GDScriptParser::OperatorNode::OP_NEG: {
 					if (!_create_unary_operator(codegen, on, Variant::OP_NEGATE, p_stack_level)) return -1;
+				} break;
+				case GDScriptParser::OperatorNode::OP_POS: {
+					if (!_create_unary_operator(codegen, on, Variant::OP_POSITIVE, p_stack_level)) return -1;
 				} break;
 				case GDScriptParser::OperatorNode::OP_NOT: {
 					if (!_create_unary_operator(codegen, on, Variant::OP_NOT, p_stack_level)) return -1;

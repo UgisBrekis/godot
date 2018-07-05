@@ -263,6 +263,7 @@ void Main::print_help(const char *p_binary) {
 
 	OS::get_singleton()->print("Standalone tools:\n");
 	OS::get_singleton()->print("  -s, --script <script>            Run a script.\n");
+	OS::get_singleton()->print("  --check-only                     Only parse for errors and quit (use with --script).\n");
 #ifdef TOOLS_ENABLED
 	OS::get_singleton()->print("  --export <target>                Export the project using the given export target. Export only main pack if path ends with .pck or .zip'.\n");
 	OS::get_singleton()->print("  --export-debug <target>          Like --export, but use debug template.\n");
@@ -538,6 +539,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		} else if (I->get() == "--build-solutions") { // Build the scripting solution such C#
 
 			auto_build_solutions = true;
+			editor = true;
 #endif
 		} else if (I->get() == "--no-window") { // disable window creation, Windows only
 
@@ -713,6 +715,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 			memdelete(sdr);
 		} else {
 			script_debugger = sdr;
+			sdr->set_allow_focus_steal_pid(allow_focus_steal_pid);
 		}
 	} else if (debug_mode == "local") {
 
@@ -865,6 +868,8 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 	OS::get_singleton()->_allow_layered = GLOBAL_DEF("display/window/allow_per_pixel_transparency", false);
 
 	video_mode.use_vsync = GLOBAL_DEF("display/window/vsync/use_vsync", true);
+	OS::get_singleton()->_use_vsync = video_mode.use_vsync;
+
 	video_mode.layered = GLOBAL_DEF("display/window/per_pixel_transparency", false);
 	video_mode.layered_splash = GLOBAL_DEF("display/window/per_pixel_transparency_splash", false);
 
@@ -1175,10 +1180,6 @@ Error Main::setup2(Thread::ID p_main_tid_override) {
 
 #endif
 
-	if (allow_focus_steal_pid) {
-		OS::get_singleton()->enable_for_stealing_focus(allow_focus_steal_pid);
-	}
-
 	MAIN_PRINT("Main: Load Modules, Physics, Drivers, Scripts");
 
 	register_platform_apis();
@@ -1239,6 +1240,7 @@ bool Main::start() {
 	String test;
 	String _export_preset;
 	bool export_debug = false;
+	bool check_only = false;
 
 	main_timer_sync.init(OS::get_singleton()->get_ticks_usec());
 
@@ -1261,6 +1263,8 @@ bool Main::start() {
 			bool parsed_pair = true;
 			if (args[i] == "-s" || args[i] == "--script") {
 				script = args[i + 1];
+			} else if (args[i] == "--check-only") {
+				check_only = true;
 			} else if (args[i] == "--test") {
 				test = args[i + 1];
 #ifdef TOOLS_ENABLED
@@ -1383,6 +1387,10 @@ bool Main::start() {
 		ERR_EXPLAIN("Can't load script: " + script);
 		ERR_FAIL_COND_V(script_res.is_null(), false);
 
+		if (check_only) {
+			return false;
+		}
+
 		if (script_res->can_instance() /*&& script_res->inherits_from("SceneTreeScripted")*/) {
 
 			StringName instance_type = script_res->get_instance_base_type();
@@ -1444,7 +1452,7 @@ bool Main::start() {
 		}
 #endif
 
-		if (!project_manager) { // game or editor
+		if (!project_manager && !editor) { // game
 			if (game_path != "" || script != "") {
 				//autoload
 				List<PropertyInfo> props;
@@ -1465,24 +1473,13 @@ bool Main::start() {
 
 					if (global_var) {
 						for (int i = 0; i < ScriptServer::get_language_count(); i++) {
-#ifdef TOOLS_ENABLED
-							if (editor) {
-								ScriptServer::get_language(i)->add_named_global_constant(name, Variant());
-							} else {
-								ScriptServer::get_language(i)->add_global_constant(name, Variant());
-							}
-#else
 							ScriptServer::get_language(i)->add_global_constant(name, Variant());
-#endif
 						}
 					}
 				}
 
 				//second pass, load into global constants
 				List<Node *> to_add;
-#ifdef TOOLS_ENABLED
-				ResourceLoader::set_timestamp_on_load(editor); // Avoid problems when editing
-#endif
 				for (List<PropertyInfo>::Element *E = props.front(); E; E = E->next()) {
 
 					String s = E->get().name;
@@ -1528,22 +1525,10 @@ bool Main::start() {
 
 					if (global_var) {
 						for (int i = 0; i < ScriptServer::get_language_count(); i++) {
-#ifdef TOOLS_ENABLED
-							if (editor) {
-								ScriptServer::get_language(i)->add_named_global_constant(name, n);
-							} else {
-								ScriptServer::get_language(i)->add_global_constant(name, n);
-							}
-#else
 							ScriptServer::get_language(i)->add_global_constant(name, n);
-#endif
 						}
 					}
 				}
-
-#ifdef TOOLS_ENABLED
-				ResourceLoader::set_timestamp_on_load(false);
-#endif
 
 				for (List<Node *>::Element *E = to_add.front(); E; E = E->next()) {
 
@@ -1829,9 +1814,6 @@ bool Main::iteration() {
 			force_redraw_requested = false;
 		}
 	}
-
-	if (AudioServer::get_singleton())
-		AudioServer::get_singleton()->update();
 
 	idle_process_ticks = OS::get_singleton()->get_ticks_usec() - idle_begin;
 	idle_process_max = MAX(idle_process_ticks, idle_process_max);

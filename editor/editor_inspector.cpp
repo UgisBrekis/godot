@@ -842,9 +842,11 @@ void EditorInspectorPlugin::_bind_methods() {
 
 	MethodInfo vm;
 	vm.name = "can_handle";
+	vm.return_val.type = Variant::BOOL;
 	vm.arguments.push_back(PropertyInfo(Variant::OBJECT, "object"));
 	BIND_VMETHOD(vm);
 	vm.name = "parse_begin";
+	vm.return_val.type = Variant::NIL;
 	BIND_VMETHOD(vm);
 	vm.name = "parse_category";
 	vm.arguments.push_back(PropertyInfo(Variant::STRING, "category"));
@@ -859,8 +861,8 @@ void EditorInspectorPlugin::_bind_methods() {
 	vm.arguments.push_back(PropertyInfo(Variant::INT, "usage"));
 	BIND_VMETHOD(vm);
 	vm.arguments.clear();
-	vm.return_val.type = Variant::NIL;
 	vm.name = "parse_end";
+	vm.return_val.type = Variant::NIL;
 	BIND_VMETHOD(vm);
 }
 
@@ -1329,8 +1331,9 @@ void EditorInspector::update_tree() {
 		} else if (!(p.usage & PROPERTY_USAGE_EDITOR))
 			continue;
 
-		if (hide_script && p.name == "script")
+		if (p.name == "script" && (hide_script || bool(object->call("_hide_script_from_inspector")))) {
 			continue;
+		}
 
 		String basename = p.name;
 		if (group != "") {
@@ -1461,7 +1464,8 @@ void EditorInspector::update_tree() {
 #endif
 		for (List<Ref<EditorInspectorPlugin> >::Element *E = valid_plugins.front(); E; E = E->next()) {
 			Ref<EditorInspectorPlugin> ped = E->get();
-			ped->parse_property(object, p.type, p.name, p.hint, p.hint_string, p.usage);
+			bool exclusive = ped->parse_property(object, p.type, p.name, p.hint, p.hint_string, p.usage);
+
 			List<EditorInspectorPlugin::AddedEditor> editors = ped->added_editors; //make a copy, since plugins may be used again in a sub-inspector
 			ped->added_editors.clear();
 
@@ -1474,6 +1478,9 @@ void EditorInspector::update_tree() {
 
 					ep->object = object;
 					ep->connect("property_changed", this, "_property_changed");
+					if (p.usage & PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED) {
+						ep->connect("property_changed", this, "_property_changed_update_all", varray(), CONNECT_DEFERRED);
+					}
 					ep->connect("property_keyed", this, "_property_keyed");
 					ep->connect("property_keyed_with_value", this, "_property_keyed_with_value");
 					ep->connect("property_checked", this, "_property_checked");
@@ -1526,6 +1533,10 @@ void EditorInspector::update_tree() {
 					}
 				}
 			}
+
+			if (exclusive) {
+				break;
+			}
 		}
 	}
 
@@ -1561,7 +1572,7 @@ void EditorInspector::_clear() {
 
 void EditorInspector::refresh() {
 
-	if (refresh_countdown > 0)
+	if (refresh_countdown > 0 || changing)
 		return;
 	refresh_countdown = EditorSettings::get_singleton()->get("docks/property_editor/auto_refresh_interval");
 }
@@ -1636,6 +1647,7 @@ void EditorInspector::register_text_enter(Node *p_line_edit) {
 
 void EditorInspector::_filter_changed(const String &p_text) {
 
+	_clear();
 	update_tree();
 }
 
@@ -1648,6 +1660,10 @@ void EditorInspector::set_property_selectable(bool p_selectable) {
 void EditorInspector::set_use_folding(bool p_enable) {
 	use_folding = p_enable;
 	update_tree();
+}
+
+bool EditorInspector::is_using_folding() {
+	return use_folding;
 }
 
 void EditorInspector::collapse_all_folding() {
@@ -1757,9 +1773,7 @@ void EditorInspector::_edit_set(const String &p_name, const Variant &p_value, bo
 		}
 		undo_redo->add_do_method(this, "emit_signal", _prop_edited, p_name);
 		undo_redo->add_undo_method(this, "emit_signal", _prop_edited, p_name);
-		changing++;
 		undo_redo->commit_action();
-		changing--;
 	}
 
 	if (editor_property_map.has(p_name)) {
@@ -1769,9 +1783,21 @@ void EditorInspector::_edit_set(const String &p_name, const Variant &p_value, bo
 	}
 }
 
-void EditorInspector::_property_changed(const String &p_path, const Variant &p_value) {
+void EditorInspector::_property_changed(const String &p_path, const Variant &p_value, bool changing) {
+
+	// The "changing" variable must be true for properties that trigger events as typing occurs,
+	// like "text_changed" signal. eg: Text property of Label, Button, RichTextLabel, etc.
+	if (changing)
+		this->changing++;
 
 	_edit_set(p_path, p_value, false, "");
+
+	if (changing)
+		this->changing--;
+}
+
+void EditorInspector::_property_changed_update_all(const String &p_path, const Variant &p_value) {
+	update_tree();
 }
 
 void EditorInspector::_multiple_properties_changed(Vector<String> p_paths, Array p_values) {
@@ -1941,8 +1967,10 @@ void EditorInspector::_changed_callback(Object *p_changed, const char *p_prop) {
 
 void EditorInspector::_bind_methods() {
 
+	ClassDB::bind_method("_property_changed", &EditorInspector::_property_changed, DEFVAL(false));
 	ClassDB::bind_method("_multiple_properties_changed", &EditorInspector::_multiple_properties_changed);
-	ClassDB::bind_method("_property_changed", &EditorInspector::_property_changed);
+	ClassDB::bind_method("_property_changed_update_all", &EditorInspector::_property_changed_update_all);
+
 	ClassDB::bind_method("_edit_request_change", &EditorInspector::_edit_request_change);
 	ClassDB::bind_method("_node_removed", &EditorInspector::_node_removed);
 	ClassDB::bind_method("_filter_changed", &EditorInspector::_filter_changed);
@@ -1952,6 +1980,7 @@ void EditorInspector::_bind_methods() {
 	ClassDB::bind_method("_property_selected", &EditorInspector::_property_selected);
 	ClassDB::bind_method("_resource_selected", &EditorInspector::_resource_selected);
 	ClassDB::bind_method("_object_id_selected", &EditorInspector::_object_id_selected);
+	ClassDB::bind_method("refresh", &EditorInspector::refresh);
 
 	ADD_SIGNAL(MethodInfo("property_keyed", PropertyInfo(Variant::STRING, "property")));
 	ADD_SIGNAL(MethodInfo("resource_selected", PropertyInfo(Variant::OBJECT, "res"), PropertyInfo(Variant::STRING, "prop")));

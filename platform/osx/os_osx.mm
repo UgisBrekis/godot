@@ -959,7 +959,7 @@ static int remapKey(unsigned int key) {
 		push_to_key_event_buffer(ke);
 	}
 
-	if ((OS_OSX::singleton->im_position.x != 0) && (OS_OSX::singleton->im_position.y != 0))
+	if (OS_OSX::singleton->im_active == true)
 		[self interpretKeyEvents:[NSArray arrayWithObject:event]];
 }
 
@@ -1129,6 +1129,10 @@ String OS_OSX::get_unique_id() const {
 	return serial_number;
 }
 
+void OS_OSX::set_ime_active(const bool p_active) {
+	im_active = p_active;
+}
+
 void OS_OSX::set_ime_position(const Point2 &p_pos) {
 	im_position = p_pos;
 }
@@ -1184,6 +1188,7 @@ Error OS_OSX::initialize(const VideoMode &p_desired, int p_video_driver, int p_a
 	if (p_desired.borderless_window) {
 		styleMask = NSWindowStyleMaskBorderless;
 	} else {
+		resizable = p_desired.resizable;
 		styleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | (p_desired.resizable ? NSWindowStyleMaskResizable : 0);
 	}
 
@@ -1545,7 +1550,9 @@ void OS_OSX::set_custom_mouse_cursor(const RES &p_cursor, CursorShape p_shape, c
 
 		image = texture->get_data();
 
-		NSBitmapImageRep *imgrep = [[[NSBitmapImageRep alloc]
+		ERR_FAIL_COND(!image.is_valid());
+
+		NSBitmapImageRep *imgrep = [[NSBitmapImageRep alloc]
 				initWithBitmapDataPlanes:NULL
 							  pixelsWide:int(texture_size.width)
 							  pixelsHigh:int(texture_size.height)
@@ -1555,7 +1562,7 @@ void OS_OSX::set_custom_mouse_cursor(const RES &p_cursor, CursorShape p_shape, c
 								isPlanar:NO
 						  colorSpaceName:NSDeviceRGBColorSpace
 							 bytesPerRow:int(texture_size.width) * 4
-							bitsPerPixel:32] autorelease];
+							bitsPerPixel:32];
 
 		ERR_FAIL_COND(imgrep == nil);
 		uint8_t *pixels = [imgrep bitmapData];
@@ -1587,16 +1594,20 @@ void OS_OSX::set_custom_mouse_cursor(const RES &p_cursor, CursorShape p_shape, c
 
 		image->unlock();
 
-		NSImage *nsimage = [[[NSImage alloc] initWithSize:NSMakeSize(texture_size.width, texture_size.height)] autorelease];
+		NSImage *nsimage = [[NSImage alloc] initWithSize:NSMakeSize(texture_size.width, texture_size.height)];
 		[nsimage addRepresentation:imgrep];
 
 		NSCursor *cursor = [[NSCursor alloc] initWithImage:nsimage hotSpot:NSMakePoint(p_hotspot.x, p_hotspot.y)];
 
+		[cursors[p_shape] release];
 		cursors[p_shape] = cursor;
 
 		if (p_shape == CURSOR_ARROW) {
 			[cursor set];
 		}
+
+		[imgrep release];
+		[nsimage release];
 	} else {
 		// Reset to default system cursor
 		cursors[p_shape] = NULL;
@@ -2114,6 +2125,8 @@ void OS_OSX::set_window_resizable(bool p_enabled) {
 		[window_object setStyleMask:[window_object styleMask] | NSWindowStyleMaskResizable];
 	else
 		[window_object setStyleMask:[window_object styleMask] & ~NSWindowStyleMaskResizable];
+
+	resizable = p_enabled;
 };
 
 bool OS_OSX::is_window_resizable() const {
@@ -2223,7 +2236,7 @@ void OS_OSX::set_borderless_window(bool p_borderless) {
 		if (layered_window)
 			set_window_per_pixel_transparency_enabled(false);
 
-		[window_object setStyleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable];
+		[window_object setStyleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | (resizable ? NSWindowStyleMaskResizable : 0)];
 
 		// Force update of the window styles
 		NSRect frameRect = [window_object frame];
@@ -2533,6 +2546,7 @@ OS_OSX::OS_OSX() {
 	mouse_mode = OS::MOUSE_MODE_VISIBLE;
 	main_loop = NULL;
 	singleton = this;
+	im_active = false;
 	im_position = Point2();
 	im_callback = NULL;
 	im_target = NULL;
@@ -2619,6 +2633,7 @@ OS_OSX::OS_OSX() {
 	minimized = false;
 	window_size = Vector2(1024, 600);
 	zoomed = false;
+	resizable = false;
 
 	Vector<Logger *> loggers;
 	loggers.push_back(memnew(OSXTerminalLogger));

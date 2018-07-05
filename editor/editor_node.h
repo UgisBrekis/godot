@@ -32,6 +32,7 @@
 #define EDITOR_NODE_H
 
 #include "core/print_string.h"
+#include "editor/audio_stream_preview.h"
 #include "editor/connections_dialog.h"
 #include "editor/create_dialog.h"
 #include "editor/editor_about.h"
@@ -81,6 +82,7 @@
 #include "scene/gui/tool_button.h"
 #include "scene/gui/tree.h"
 #include "scene/gui/viewport_container.h"
+
 /**
 	@author Juan Linietsky <reduzio@gmail.com>
 */
@@ -169,7 +171,7 @@ private:
 		SETTINGS_LAYOUT_DEFAULT,
 		SETTINGS_MANAGE_EXPORT_TEMPLATES,
 		SETTINGS_PICK_MAIN_SCENE,
-		SETTINGS_TOGGLE_FULLSCREN,
+		SETTINGS_TOGGLE_FULLSCREEN,
 		SETTINGS_HELP,
 		SCENE_TAB_CLOSE,
 
@@ -298,6 +300,7 @@ private:
 	Vector<ToolButton *> main_editor_buttons;
 	Vector<EditorPlugin *> editor_table;
 
+	AudioStreamPreviewGenerator *preview_gen;
 	ProgressDialog *progress_dialog;
 	BackgroundProgress *progress_hb;
 
@@ -595,6 +598,7 @@ public:
 	EditorPluginList *get_editor_plugins_force_input_forwarding() { return editor_plugins_force_input_forwarding; }
 	EditorInspector *get_inspector() { return inspector_dock->get_inspector(); }
 	Container *get_inspector_dock_addon_area() { return inspector_dock->get_addon_area(); }
+	ScriptCreateDialog *get_script_create_dialog() { return scene_tree_dock->get_script_create_dialog(); }
 
 	ProjectSettingsEditor *get_project_settings() { return project_settings; }
 
@@ -631,7 +635,9 @@ public:
 
 	static HBoxContainer *get_menu_hb() { return singleton->menu_hb; }
 
-	void push_item(Object *p_object, const String &p_property = "");
+	void push_item(Object *p_object, const String &p_property = "", bool p_inspector_only = false);
+	void edit_item(Object *p_object);
+	bool item_has_editor(Object *p_object);
 
 	void open_request(const String &p_path);
 
@@ -680,6 +686,7 @@ public:
 
 	Ref<Theme> get_editor_theme() const { return theme; }
 
+	void show_accept(const String &p_text, const String &p_title);
 	void show_warning(const String &p_text, const String &p_title = "Warning!");
 
 	Error export_preset(const String &p_preset, const String &p_path, bool p_debug, const String &p_password, bool p_quit_after = false);

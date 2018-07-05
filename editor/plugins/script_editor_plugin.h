@@ -72,9 +72,9 @@ public:
 
 class ScriptEditorDebugger;
 
-class ScriptEditorBase : public Control {
+class ScriptEditorBase : public VBoxContainer {
 
-	GDCLASS(ScriptEditorBase, Control);
+	GDCLASS(ScriptEditorBase, VBoxContainer);
 
 protected:
 	static void _bind_methods();
@@ -134,10 +134,7 @@ class ScriptEditor : public PanelContainer {
 		FILE_SAVE,
 		FILE_SAVE_AS,
 		FILE_SAVE_ALL,
-		FILE_IMPORT_THEME,
-		FILE_RELOAD_THEME,
-		FILE_SAVE_THEME,
-		FILE_SAVE_THEME_AS,
+		FILE_THEME,
 		FILE_RUN,
 		FILE_CLOSE,
 		CLOSE_DOCS,
@@ -168,6 +165,13 @@ class ScriptEditor : public PanelContainer {
 		WINDOW_SELECT_BASE = 100
 	};
 
+	enum {
+		THEME_IMPORT,
+		THEME_RELOAD,
+		THEME_SAVE,
+		THEME_SAVE_AS
+	};
+
 	enum ScriptSortBy {
 		SORT_BY_NAME,
 		SORT_BY_PATH,
@@ -190,6 +194,7 @@ class ScriptEditor : public PanelContainer {
 	uint64_t idle;
 
 	PopupMenu *recent_scripts;
+	PopupMenu *theme_submenu;
 
 	Button *help_search;
 	Button *site_search;
@@ -199,8 +204,9 @@ class ScriptEditor : public PanelContainer {
 	ItemList *script_list;
 	HSplitContainer *script_split;
 	ItemList *members_overview;
-	VBoxContainer *members_overview_vbox;
-	HBoxContainer *members_overview_buttons_hbox;
+	VBoxContainer *overview_vbox;
+	HBoxContainer *buttons_hbox;
+	Label *filename;
 	ToolButton *members_overview_alphabeta_sort_button;
 	bool members_overview_enabled;
 	ItemList *help_overview;
@@ -250,6 +256,7 @@ class ScriptEditor : public PanelContainer {
 
 	void _tab_changed(int p_which);
 	void _menu_option(int p_option);
+	void _theme_option(int p_option);
 
 	Tree *disk_changed_list;
 	ConfirmationDialog *disk_changed;

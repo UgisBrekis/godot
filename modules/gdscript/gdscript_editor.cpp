@@ -54,18 +54,18 @@ void GDScriptLanguage::get_string_delimiters(List<String> *p_delimiters) const {
 }
 Ref<Script> GDScriptLanguage::get_template(const String &p_class_name, const String &p_base_class_name) const {
 
-	String _template = String() +
-					   "extends %BASE%\n\n" +
-					   "# class member variables go here, for example:\n" +
-					   "# var a = 2\n" +
-					   "# var b = \"textvar\"\n\n" +
-					   "func _ready():\n" +
-					   "%TS%# Called when the node is added to the scene for the first time.\n" +
-					   "%TS%# Initialization here.\n" +
-					   "%TS%pass\n\n" +
-					   "#func _process(delta):\n" +
-					   "#%TS%# Called every frame. Delta is time since last frame.\n" +
-					   "#%TS%# Update game logic here.\n" +
+	String _template = "extends %BASE%\n"
+					   "\n"
+					   "# Declare member variables here. Examples:\n"
+					   "# var a = 2\n"
+					   "# var b = \"text\"\n"
+					   "\n"
+					   "# Called when the node enters the scene tree for the first time.\n"
+					   "func _ready():\n"
+					   "%TS%pass # Replace with function body.\n"
+					   "\n"
+					   "# Called every frame. 'delta' is the elapsed time since the previous frame.\n"
+					   "#func _process(delta):\n"
 					   "#%TS%pass\n";
 
 	_template = _template.replace("%BASE%", p_base_class_name);
@@ -116,6 +116,13 @@ bool GDScriptLanguage::validate(const String &p_script, int &r_line_error, int &
 		for (int i = 0; i < cl->static_functions.size(); i++) {
 
 			funcs[cl->static_functions[i]->line] = cl->static_functions[i]->name;
+		}
+
+		for (int i = 0; i < cl->subclasses.size(); i++) {
+			for (int j = 0; j < cl->subclasses[i]->functions.size(); j++) {
+
+				funcs[cl->subclasses[i]->functions[j]->line] = String(cl->subclasses[i]->name) + "." + String(cl->subclasses[i]->functions[j]->name);
+			}
 		}
 
 		for (Map<int, String>::Element *E = funcs.front(); E; E = E->next()) {
@@ -416,7 +423,7 @@ String GDScriptLanguage::make_function(const String &p_class, const String &p_na
 			s += p_args[i].get_slice(":", 0);
 		}
 	}
-	s += "):\n" + _get_indentation() + "pass # replace with function body\n";
+	s += "):\n" + _get_indentation() + "pass # Replace with function body.\n";
 
 	return s;
 }
