@@ -84,6 +84,10 @@ void OS_X11::initialize_core() {
 	OS_Unix::initialize_core();
 }
 
+int OS_X11::get_current_video_driver() const {
+	return video_driver_index;
+}
+
 Error OS_X11::initialize(const VideoMode &p_desired, int p_video_driver, int p_audio_driver) {
 
 	long im_event_mask = 0;
@@ -284,6 +288,8 @@ Error OS_X11::initialize(const VideoMode &p_desired, int p_video_driver, int p_a
 			RasterizerGLES3::make_current();
 		} break;
 	}
+
+	video_driver_index = p_video_driver; // FIXME TODO - FIX IF DRIVER DETECTION HAPPENS AND GLES2 MUST BE USED
 
 	context_gl->set_use_vsync(current_videomode.use_vsync);
 

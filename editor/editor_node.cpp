@@ -73,6 +73,7 @@
 #include "editor/plugins/animation_state_machine_editor.h"
 #include "editor/plugins/animation_tree_editor_plugin.h"
 #include "editor/plugins/asset_library_editor_plugin.h"
+#include "editor/plugins/audio_stream_editor_plugin.h"
 #include "editor/plugins/baked_lightmap_editor_plugin.h"
 #include "editor/plugins/camera_editor_plugin.h"
 #include "editor/plugins/canvas_item_editor_plugin.h"
@@ -1067,6 +1068,32 @@ void EditorNode::_save_scene(String p_file, int idx) {
 	}
 }
 
+void EditorNode::save_all_scenes_and_restart() {
+
+	_menu_option_confirm(RUN_STOP, true);
+	exiting = true;
+
+	_save_all_scenes();
+
+	String to_reopen;
+	if (get_tree()->get_edited_scene_root()) {
+		to_reopen = get_tree()->get_edited_scene_root()->get_filename();
+	}
+
+	get_tree()->quit();
+	String exec = OS::get_singleton()->get_executable_path();
+
+	List<String> args;
+	args.push_back("--path");
+	args.push_back(ProjectSettings::get_singleton()->get_resource_path());
+	args.push_back("-e");
+	if (to_reopen != String()) {
+		args.push_back(to_reopen);
+	}
+
+	OS::get_singleton()->set_restart_on_exit(true, args);
+}
+
 void EditorNode::_save_all_scenes() {
 
 	for (int i = 0; i < editor_data.get_edited_scene_count(); i++) {
@@ -1855,10 +1882,6 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 
 		} break;
 
-		case SETTINGS_EXPORT_PREFERENCES: {
-
-			//project_export_settings->popup_centered_ratio();
-		} break;
 		case FILE_IMPORT_SUBSCENE: {
 
 			if (!editor_data.get_edited_scene_root()) {
@@ -2207,6 +2230,13 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 			about->popup_centered_minsize(Size2(780, 500) * EDSCALE);
 		} break;
 
+		case SET_VIDEO_DRIVER_SAVE_AND_RESTART: {
+
+			ProjectSettings::get_singleton()->set("rendering/quality/driver/driver_name", video_driver_request);
+			ProjectSettings::get_singleton()->save();
+
+			save_all_scenes_and_restart();
+		} break;
 		default: {
 			if (p_option >= IMPORT_PLUGIN_BASE) {
 			}
@@ -4189,7 +4219,7 @@ void EditorNode::_dropped_files(const Vector<String> &p_files, int p_screen) {
 	for (int i = 0; i < p_files.size(); i++) {
 
 		String from = p_files[i];
-		if (!ResourceFormatImporter::get_singleton()->can_be_imported(from) && (just_copy.find(from.get_extension().to_lower()) != -1)) {
+		if (!ResourceFormatImporter::get_singleton()->can_be_imported(from) && (just_copy.find(from.get_extension().to_lower()) == -1)) {
 			continue;
 		}
 		String to = to_path.plus_file(from.get_file());
@@ -4393,6 +4423,21 @@ void EditorNode::_bottom_panel_raise_toggled(bool p_pressed) {
 	}
 }
 
+void EditorNode::_video_driver_selected(int p_which) {
+
+	String driver = video_driver->get_item_metadata(p_which);
+
+	String current = OS::get_singleton()->get_video_driver_name(OS::get_singleton()->get_current_video_driver());
+
+	if (driver == current) {
+		return;
+	}
+
+	video_driver_request = driver;
+	video_restart_dialog->popup_centered_minsize();
+	video_driver->select(video_driver_current);
+}
+
 void EditorNode::_bind_methods() {
 
 	ClassDB::bind_method("_menu_option", &EditorNode::_menu_option);
@@ -4462,6 +4507,8 @@ void EditorNode::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("_resources_reimported"), &EditorNode::_resources_reimported);
 	ClassDB::bind_method(D_METHOD("_bottom_panel_raise_toggled"), &EditorNode::_bottom_panel_raise_toggled);
+
+	ClassDB::bind_method(D_METHOD("_video_driver_selected"), &EditorNode::_video_driver_selected);
 
 	ADD_SIGNAL(MethodInfo("play_pressed"));
 	ADD_SIGNAL(MethodInfo("pause_pressed"));
@@ -4659,21 +4706,21 @@ EditorNode::EditorNode() {
 	ClassDB::set_class_enabled("RootMotionView", true);
 
 	//defs here, use EDITOR_GET in logic
-	EDITOR_DEF("interface/scene_tabs/always_show_close_button", false);
-	EDITOR_DEF("interface/scene_tabs/resize_if_many_tabs", true);
-	EDITOR_DEF("interface/scene_tabs/minimum_width", 50);
+	EDITOR_DEF_RST("interface/scene_tabs/always_show_close_button", false);
+	EDITOR_DEF_RST("interface/scene_tabs/resize_if_many_tabs", true);
+	EDITOR_DEF_RST("interface/scene_tabs/minimum_width", 50);
 	EDITOR_DEF("run/output/always_clear_output_on_play", true);
 	EDITOR_DEF("run/output/always_open_output_on_play", true);
 	EDITOR_DEF("run/output/always_close_output_on_stop", true);
 	EDITOR_DEF("run/auto_save/save_before_running", true);
-	EDITOR_DEF("interface/editor/save_each_scene_on_quit", true);
+	EDITOR_DEF_RST("interface/editor/save_each_scene_on_quit", true);
 	EDITOR_DEF("interface/editor/quit_confirmation", true);
-	EDITOR_DEF("interface/scene_tabs/restore_scenes_on_load", false);
-	EDITOR_DEF("interface/scene_tabs/show_thumbnail_on_hover", true);
-	EDITOR_DEF("interface/inspector/capitalize_properties", true);
-	EDITOR_DEF("interface/inspector/disable_folding", false);
+	EDITOR_DEF_RST("interface/scene_tabs/restore_scenes_on_load", false);
+	EDITOR_DEF_RST("interface/scene_tabs/show_thumbnail_on_hover", true);
+	EDITOR_DEF_RST("interface/inspector/capitalize_properties", true);
+	EDITOR_DEF_RST("interface/inspector/disable_folding", false);
 	EDITOR_DEF("interface/inspector/open_resources_in_current_inspector", true);
-	EDITOR_DEF("interface/inspector/resources_types_to_open_in_new_inspector", "Material,Mesh");
+	EDITOR_DEF("interface/inspector/resources_types_to_open_in_new_inspector", "SpatialMaterial");
 	EDITOR_DEF("run/auto_save/save_before_running", true);
 
 	theme_base = memnew(Control);
@@ -5194,6 +5241,37 @@ EditorNode::EditorNode() {
 	play_custom_scene_button->set_shortcut(ED_SHORTCUT("editor/play_custom_scene", TTR("Play Custom Scene"), KEY_MASK_CMD | KEY_MASK_SHIFT | KEY_F5));
 #endif
 
+	video_driver = memnew(OptionButton);
+	video_driver->set_flat(true);
+	video_driver->set_focus_mode(Control::FOCUS_NONE);
+	video_driver->set_v_size_flags(Control::SIZE_SHRINK_CENTER);
+	String video_drivers = ProjectSettings::get_singleton()->get_custom_property_info()["rendering/quality/driver/driver_name"].hint_string;
+	String current_video_driver = OS::get_singleton()->get_video_driver_name(OS::get_singleton()->get_current_video_driver());
+	menu_hb->add_child(video_driver);
+	video_driver_current = 0;
+	for (int i = 0; i < video_drivers.get_slice_count(","); i++) {
+		String driver = video_drivers.get_slice(",", i);
+		if (gui_base->has_icon(driver, "EditorIcons")) {
+			video_driver->add_icon_item(gui_base->get_icon(driver, "EditorIcons"), "");
+		} else {
+			video_driver->add_item(driver);
+		}
+
+		video_driver->set_item_metadata(i, driver);
+
+		if (current_video_driver == driver) {
+			video_driver->select(i);
+			video_driver_current = i;
+		}
+	}
+
+	video_driver->connect("item_selected", this, "_video_driver_selected");
+	video_restart_dialog = memnew(ConfirmationDialog);
+	video_restart_dialog->set_text(TTR("Changing the video driver requires restarting the editor."));
+	video_restart_dialog->get_ok()->set_text(TTR("Save & Restart"));
+	video_restart_dialog->connect("confirmed", this, "_menu_option", varray(SET_VIDEO_DRIVER_SAVE_AND_RESTART));
+	add_child(video_restart_dialog);
+
 	progress_hb = memnew(BackgroundProgress);
 
 	HBoxContainer *right_menu_hb = memnew(HBoxContainer);
@@ -5445,6 +5523,7 @@ EditorNode::EditorNode() {
 	add_editor_plugin(memnew(CollisionShape2DEditorPlugin(this)));
 	add_editor_plugin(memnew(CurveEditorPlugin(this)));
 	add_editor_plugin(memnew(TextureEditorPlugin(this)));
+	add_editor_plugin(memnew(AudioStreamEditorPlugin(this)));
 	add_editor_plugin(memnew(AudioBusesEditorPlugin(audio_bus_editor)));
 	add_editor_plugin(memnew(AudioBusesEditorPlugin(audio_bus_editor)));
 	add_editor_plugin(memnew(SkeletonEditorPlugin(this)));
