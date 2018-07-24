@@ -1,12 +1,12 @@
 /*************************************************************************/
-/*  dictionary.h                                                         */
+/*  physics_material.h                                                   */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2017 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2017 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -27,62 +27,44 @@
 /* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
+#ifndef physics_material_override_H
+#define physics_material_override_H
 
-#ifndef DICTIONARY_H
-#define DICTIONARY_H
+#include "resource.h"
+#include "servers/physics_server.h"
 
-#include "array.h"
-#include "list.h"
-#include "ustring.h"
-class Variant;
+class PhysicsMaterial : public Resource {
 
-struct DictionaryPrivate;
+	GDCLASS(PhysicsMaterial, Resource);
+	OBJ_SAVE_TYPE(PhysicsMaterial);
+	RES_BASE_EXTENSION("PhyMat");
 
-class Dictionary {
+	real_t bounce;
+	PhysicsServer::CombineMode bounce_combine_mode;
+	real_t friction;
+	PhysicsServer::CombineMode friction_combine_mode;
 
-	mutable DictionaryPrivate *_p;
+protected:
+	bool _set(const StringName &p_name, const Variant &p_value);
+	bool _get(const StringName &p_name, Variant &r_ret) const;
+	void _get_property_list(List<PropertyInfo> *p_list) const;
 
-	void _ref(const Dictionary &p_from) const;
-	void _unref() const;
+	static void _bind_methods();
 
 public:
-	void get_key_list(List<Variant> *p_keys) const;
-	Variant get_key_at_index(int p_index) const;
-	Variant get_value_at_index(int p_index) const;
+	void set_bounce(real_t p_val);
+	_FORCE_INLINE_ real_t get_bounce() const { return bounce; }
 
-	Variant &operator[](const Variant &p_key);
-	const Variant &operator[](const Variant &p_key) const;
+	void set_bounce_combine_mode(PhysicsServer::CombineMode p_val);
+	_FORCE_INLINE_ PhysicsServer::CombineMode get_bounce_combine_mode() const { return bounce_combine_mode; }
 
-	const Variant *getptr(const Variant &p_key) const;
-	Variant *getptr(const Variant &p_key);
+	void set_friction(real_t p_val);
+	_FORCE_INLINE_ real_t get_friction() const { return friction; }
 
-	Variant get_valid(const Variant &p_key) const;
+	void set_friction_combine_mode(PhysicsServer::CombineMode p_val);
+	_FORCE_INLINE_ PhysicsServer::CombineMode get_friction_combine_mode() const { return friction_combine_mode; }
 
-	int size() const;
-	bool empty() const;
-	void clear();
-
-	bool has(const Variant &p_key) const;
-	bool has_all(const Array &p_keys) const;
-
-	void erase(const Variant &p_key);
-	bool erase_checked(const Variant &p_key);
-
-	bool operator==(const Dictionary &p_dictionary) const;
-
-	uint32_t hash() const;
-	void operator=(const Dictionary &p_dictionary);
-
-	const Variant *next(const Variant *p_key = NULL) const;
-
-	Array keys() const;
-	Array values() const;
-
-	Dictionary duplicate(bool p_deep = false) const;
-
-	Dictionary(const Dictionary &p_from);
-	Dictionary();
-	~Dictionary();
+	PhysicsMaterial();
 };
 
-#endif // DICTIONARY_H
+#endif // physics_material_override_H

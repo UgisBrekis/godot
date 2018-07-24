@@ -199,10 +199,12 @@
 #include "scene/3d/remote_transform.h"
 #include "scene/3d/room_instance.h"
 #include "scene/3d/skeleton.h"
+#include "scene/3d/soft_body.h"
 #include "scene/3d/sprite_3d.h"
 #include "scene/3d/vehicle_body.h"
 #include "scene/3d/visibility_notifier.h"
 #include "scene/resources/environment.h"
+#include "scene/resources/physics_material.h"
 #endif
 
 static ResourceFormatLoaderTheme *resource_loader_theme = NULL;
@@ -427,6 +429,7 @@ void register_scene_types() {
 	ClassDB::register_class<KinematicCollision>();
 	ClassDB::register_class<KinematicBody>();
 	ClassDB::register_class<PhysicalBone>();
+	ClassDB::register_class<SoftBody>();
 
 	ClassDB::register_class<VehicleBody>();
 	ClassDB::register_class<VehicleWheel>();
@@ -590,6 +593,8 @@ void register_scene_types() {
 	OS::get_singleton()->yield(); //may take time to init
 
 	ClassDB::register_class<SpatialVelocityTracker>();
+
+	ClassDB::register_class<PhysicsMaterial>();
 #endif
 	ClassDB::register_class<World>();
 	ClassDB::register_class<Environment>();
