@@ -627,7 +627,7 @@ Error ProjectSettings::_save_settings_binary(const String &p_file, const Map<Str
 		Vector<uint8_t> buff;
 		buff.resize(len);
 
-		err = encode_variant(p_custom_features, &buff[0], len);
+		err = encode_variant(p_custom_features, buff.ptrw(), len);
 		if (err != OK) {
 			memdelete(file);
 			ERR_FAIL_V(err);
@@ -664,7 +664,7 @@ Error ProjectSettings::_save_settings_binary(const String &p_file, const Map<Str
 			Vector<uint8_t> buff;
 			buff.resize(len);
 
-			err = encode_variant(value, &buff[0], len);
+			err = encode_variant(value, buff.ptrw(), len);
 			if (err != OK)
 				memdelete(file);
 			ERR_FAIL_COND_V(err != OK, ERR_INVALID_DATA);
@@ -959,7 +959,7 @@ ProjectSettings::ProjectSettings() {
 
 	GLOBAL_DEF("application/config/name", "");
 	GLOBAL_DEF("application/run/main_scene", "");
-	custom_prop_info["application/run/main_scene"] = PropertyInfo(Variant::STRING, "application/run/main_scene", PROPERTY_HINT_FILE, "tscn,scn,res");
+	custom_prop_info["application/run/main_scene"] = PropertyInfo(Variant::STRING, "application/run/main_scene", PROPERTY_HINT_FILE, "*.tscn,*.scn,*.res");
 	GLOBAL_DEF("application/run/disable_stdout", false);
 	GLOBAL_DEF("application/run/disable_stderr", false);
 	GLOBAL_DEF("application/config/use_custom_user_dir", false);

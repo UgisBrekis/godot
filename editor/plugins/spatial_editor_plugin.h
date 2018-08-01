@@ -94,7 +94,9 @@ class SpatialEditorViewport : public Control {
 		VIEW_DISPLAY_NORMAL,
 		VIEW_DISPLAY_WIREFRAME,
 		VIEW_DISPLAY_OVERDRAW,
-		VIEW_DISPLAY_SHADELESS
+		VIEW_DISPLAY_SHADELESS,
+		VIEW_LOCK_ROTATION,
+		VIEW_CINEMATIC_PREVIEW
 	};
 
 public:
@@ -108,7 +110,6 @@ private:
 	int index;
 	String name;
 	void _menu_option(int p_option);
-
 	Spatial *preview_node;
 	AABB *preview_bounds;
 	Vector<String> selected_files;
@@ -132,6 +133,7 @@ private:
 	Camera *camera;
 	bool transforming;
 	bool orthogonal;
+	bool lock_rotation;
 	float gizmo_scale;
 
 	bool freelook_active;
@@ -139,6 +141,7 @@ private:
 
 	Label *info_label;
 	Label *fps_label;
+	Label *cinema_label;
 
 	struct _RayResult {
 
@@ -287,8 +290,11 @@ private:
 	Camera *previewing;
 	Camera *preview;
 
+	bool previewing_cinema;
+
 	void _preview_exited_scene();
 	void _toggle_camera_preview(bool);
+	void _toggle_cinema_preview(bool);
 	void _init_gizmo_instance(int p_idx);
 	void _finish_gizmo_instances();
 	void _selection_result_pressed(int);
@@ -403,7 +409,6 @@ public:
 		TOOL_LOCK_SELECTED,
 		TOOL_UNLOCK_SELECTED,
 		TOOL_MAX
-
 	};
 
 	enum ToolOptions {
@@ -487,7 +492,8 @@ private:
 		MENU_VIEW_CAMERA_SETTINGS,
 		MENU_LOCK_SELECTED,
 		MENU_UNLOCK_SELECTED,
-		MENU_VISIBILITY_SKELETON
+		MENU_VISIBILITY_SKELETON,
+		MENU_SNAP_TO_FLOOR
 	};
 
 	Button *tool_button[TOOL_MAX];
@@ -596,7 +602,7 @@ public:
 
 	void update_transform_gizmo();
 	void update_all_gizmos();
-
+	void snap_selected_nodes_to_floor();
 	void select_gizmo_highlight_axis(int p_axis);
 	void set_custom_camera(Node *p_camera) { custom_camera = p_camera; }
 

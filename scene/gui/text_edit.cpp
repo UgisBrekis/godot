@@ -127,13 +127,13 @@ void TextEdit::Text::_update_line_cache(int p_line) const {
 		w += get_char_width(str[i], str[i + 1], w);
 	}
 
-	text[p_line].width_cache = w;
+	text.write[p_line].width_cache = w;
 
-	text[p_line].wrap_amount_cache = -1;
+	text.write[p_line].wrap_amount_cache = -1;
 
 	//update regions
 
-	text[p_line].region_info.clear();
+	text.write[p_line].region_info.clear();
 
 	for (int i = 0; i < len; i++) {
 
@@ -172,7 +172,7 @@ void TextEdit::Text::_update_line_cache(int p_line) const {
 				ColorRegionInfo cri;
 				cri.end = false;
 				cri.region = j;
-				text[p_line].region_info[i] = cri;
+				text.write[p_line].region_info[i] = cri;
 				i += lr - 1;
 
 				break;
@@ -200,7 +200,7 @@ void TextEdit::Text::_update_line_cache(int p_line) const {
 				ColorRegionInfo cri;
 				cri.end = true;
 				cri.region = j;
-				text[p_line].region_info[i] = cri;
+				text.write[p_line].region_info[i] = cri;
 				i += lr - 1;
 
 				break;
@@ -236,7 +236,7 @@ void TextEdit::Text::set_line_wrap_amount(int p_line, int p_wrap_amount) const {
 
 	ERR_FAIL_INDEX(p_line, text.size());
 
-	text[p_line].wrap_amount_cache = p_wrap_amount;
+	text.write[p_line].wrap_amount_cache = p_wrap_amount;
 }
 
 int TextEdit::Text::get_line_wrap_amount(int p_line) const {
@@ -249,14 +249,14 @@ int TextEdit::Text::get_line_wrap_amount(int p_line) const {
 void TextEdit::Text::clear_width_cache() {
 
 	for (int i = 0; i < text.size(); i++) {
-		text[i].width_cache = -1;
+		text.write[i].width_cache = -1;
 	}
 }
 
 void TextEdit::Text::clear_wrap_cache() {
 
 	for (int i = 0; i < text.size(); i++) {
-		text[i].wrap_amount_cache = -1;
+		text.write[i].wrap_amount_cache = -1;
 	}
 }
 
@@ -281,9 +281,9 @@ void TextEdit::Text::set(int p_line, const String &p_text) {
 
 	ERR_FAIL_INDEX(p_line, text.size());
 
-	text[p_line].width_cache = -1;
-	text[p_line].wrap_amount_cache = -1;
-	text[p_line].data = p_text;
+	text.write[p_line].width_cache = -1;
+	text.write[p_line].wrap_amount_cache = -1;
+	text.write[p_line].data = p_text;
 }
 
 void TextEdit::Text::insert(int p_at, const String &p_text) {
@@ -1148,10 +1148,18 @@ void TextEdit::_notification(int p_what) {
 							if (ime_text.length() == 0) {
 								if (draw_caret) {
 									if (insert_mode) {
-										int caret_h = (block_caret) ? 4 : 1;
+#ifdef TOOLS_ENABLED
+										int caret_h = (block_caret) ? 4 : 2 * EDSCALE;
+#else
+										int caret_h = (block_caret) ? 4 : 2;
+#endif
 										VisualServer::get_singleton()->canvas_item_add_rect(ci, Rect2(cursor_pos, Size2i(caret_w, caret_h)), cache.caret_color);
 									} else {
-										caret_w = (block_caret) ? caret_w : 1;
+#ifdef TOOLS_ENABLED
+										caret_w = (block_caret) ? caret_w : 2 * EDSCALE;
+#else
+										caret_w = (block_caret) ? caret_w : 2;
+#endif
 										VisualServer::get_singleton()->canvas_item_add_rect(ci, Rect2(cursor_pos, Size2i(caret_w, get_row_height())), cache.caret_color);
 									}
 								}
@@ -1224,11 +1232,19 @@ void TextEdit::_notification(int p_what) {
 							if (draw_caret) {
 								if (insert_mode) {
 									int char_w = cache.font->get_char_size(' ').width;
-									int caret_h = (block_caret) ? 4 : 1;
+#ifdef TOOLS_ENABLED
+									int caret_h = (block_caret) ? 4 : 2 * EDSCALE;
+#else
+									int caret_h = (block_caret) ? 4 : 2;
+#endif
 									VisualServer::get_singleton()->canvas_item_add_rect(ci, Rect2(cursor_pos, Size2i(char_w, caret_h)), cache.caret_color);
 								} else {
 									int char_w = cache.font->get_char_size(' ').width;
-									int caret_w = (block_caret) ? char_w : 1;
+#ifdef TOOLS_ENABLED
+									int caret_w = (block_caret) ? char_w : 2 * EDSCALE;
+#else
+									int caret_w = (block_caret) ? char_w : 2;
+#endif
 									VisualServer::get_singleton()->canvas_item_add_rect(ci, Rect2(cursor_pos, Size2i(caret_w, get_row_height())), cache.caret_color);
 								}
 							}
@@ -4328,7 +4344,11 @@ void TextEdit::_update_caches() {
 	cache.search_result_border_color = get_color("search_result_border_color");
 	cache.symbol_color = get_color("symbol_color");
 	cache.background_color = get_color("background_color");
+#ifdef TOOLS_ENABLED
+	cache.line_spacing = get_constant("line_spacing") * EDSCALE;
+#else
 	cache.line_spacing = get_constant("line_spacing");
+#endif
 	cache.row_height = cache.font->get_height() + cache.line_spacing;
 	cache.tab_icon = get_icon("tab");
 	cache.folded_icon = get_icon("GuiTreeArrowRight", "EditorIcons");
@@ -5729,7 +5749,7 @@ void TextEdit::_update_completion_candidates() {
 
 	for (int i = 0; i < completion_strings.size(); i++) {
 		if (single_quote && completion_strings[i].is_quoted()) {
-			completion_strings[i] = completion_strings[i].unquote().quote("'");
+			completion_strings.write[i] = completion_strings[i].unquote().quote("'");
 		}
 
 		if (s == completion_strings[i]) {

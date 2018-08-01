@@ -159,7 +159,7 @@ public:
 	_FORCE_INLINE_ void add_area(AreaSW *p_area) {
 		int index = areas.find(AreaCMP(p_area));
 		if (index > -1) {
-			areas[index].refCount += 1;
+			areas.write[index].refCount += 1;
 		} else {
 			areas.ordered_insert(AreaCMP(p_area));
 		}
@@ -168,7 +168,7 @@ public:
 	_FORCE_INLINE_ void remove_area(AreaSW *p_area) {
 		int index = areas.find(AreaCMP(p_area));
 		if (index > -1) {
-			areas[index].refCount -= 1;
+			areas.write[index].refCount -= 1;
 			if (areas[index].refCount < 1)
 				areas.remove(index);
 		}
@@ -356,7 +356,7 @@ void BodySW::add_contact(const Vector3 &p_local_pos, const Vector3 &p_local_norm
 	if (c_max == 0)
 		return;
 
-	Contact *c = &contacts[0];
+	Contact *c = contacts.ptrw();
 
 	int idx = -1;
 
@@ -441,6 +441,9 @@ public:
 	virtual Vector3 get_contact_local_normal(int p_contact_idx) const {
 		ERR_FAIL_INDEX_V(p_contact_idx, body->contact_count, Vector3());
 		return body->contacts[p_contact_idx].local_normal;
+	}
+	virtual float get_contact_impulse(int p_contact_idx) const {
+		return 0.0f; // Only implemented for bullet
 	}
 	virtual int get_contact_local_shape(int p_contact_idx) const {
 		ERR_FAIL_INDEX_V(p_contact_idx, body->contact_count, -1);

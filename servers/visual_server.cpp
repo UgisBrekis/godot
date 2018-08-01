@@ -744,7 +744,7 @@ Error VisualServer::_surface_set_data(Array p_arrays, uint32_t p_format, uint32_
 
 		if (first) {
 			for (int i = 0; i < total_bones; i++) {
-				r_bone_aabb[i].size = Vector3(-1, -1, -1); //negative means unused
+				r_bone_aabb.write[i].size = Vector3(-1, -1, -1); //negative means unused
 			}
 		}
 
@@ -1648,13 +1648,13 @@ Array VisualServer::_mesh_surface_get_skeleton_aabb_bind(RID p_mesh, int p_surfa
 void VisualServer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("force_sync"), &VisualServer::sync);
-	ClassDB::bind_method(D_METHOD("force_draw", "swap_buffers"), &VisualServer::draw, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("force_draw", "swap_buffers", "frame_step"), &VisualServer::draw, DEFVAL(true), DEFVAL(0.0));
 
 	// "draw" and "sync" are deprecated duplicates of "force_draw" and "force_sync"
 	// FIXME: Add deprecation messages using GH-4397 once available, and retire
 	// once the warnings have been enabled for a full release cycle
 	ClassDB::bind_method(D_METHOD("sync"), &VisualServer::sync);
-	ClassDB::bind_method(D_METHOD("draw", "swap_buffers"), &VisualServer::draw, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("draw", "swap_buffers", "frame_step"), &VisualServer::draw, DEFVAL(true), DEFVAL(0.0));
 
 	ClassDB::bind_method(D_METHOD("texture_create"), &VisualServer::texture_create);
 	ClassDB::bind_method(D_METHOD("texture_create_from_image", "image", "flags"), &VisualServer::texture_create_from_image, DEFVAL(TEXTURE_FLAGS_DEFAULT));
@@ -1908,7 +1908,7 @@ void VisualServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("environment_set_tonemap", "env", "tone_mapper", "exposure", "white", "auto_exposure", "min_luminance", "max_luminance", "auto_exp_speed", "auto_exp_grey"), &VisualServer::environment_set_tonemap);
 	ClassDB::bind_method(D_METHOD("environment_set_adjustment", "env", "enable", "brightness", "contrast", "saturation", "ramp"), &VisualServer::environment_set_adjustment);
 	ClassDB::bind_method(D_METHOD("environment_set_ssr", "env", "enable", "max_steps", "fade_in", "fade_out", "depth_tolerance", "roughness"), &VisualServer::environment_set_ssr);
-	ClassDB::bind_method(D_METHOD("environment_set_ssao", "env", "enable", "radius", "intensity", "radius2", "intensity2", "bias", "light_affect", "color", "quality", "blur", "bilateral_sharpness"), &VisualServer::environment_set_ssao);
+	ClassDB::bind_method(D_METHOD("environment_set_ssao", "env", "enable", "radius", "intensity", "radius2", "intensity2", "bias", "light_affect", "ao_channel_affect", "color", "quality", "blur", "bilateral_sharpness"), &VisualServer::environment_set_ssao);
 	ClassDB::bind_method(D_METHOD("environment_set_fog", "env", "enable", "color", "sun_color", "sun_amount"), &VisualServer::environment_set_fog);
 	ClassDB::bind_method(D_METHOD("environment_set_fog_depth", "env", "enable", "depth_begin", "depth_curve", "transmit", "transmit_curve"), &VisualServer::environment_set_fog_depth);
 	ClassDB::bind_method(D_METHOD("environment_set_fog_height", "env", "enable", "min_height", "max_height", "height_curve"), &VisualServer::environment_set_fog_height);
@@ -2201,7 +2201,7 @@ void VisualServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(INSTANCE_GEOMETRY_MASK);
 
 	BIND_ENUM_CONSTANT(INSTANCE_FLAG_USE_BAKED_LIGHT);
-	BIND_ENUM_CONSTANT(INSTANCE_FLAG_REDRAW_FRAME_IF_VISIBLE);
+	BIND_ENUM_CONSTANT(INSTANCE_FLAG_DRAW_NEXT_FRAME_IF_VISIBLE);
 	BIND_ENUM_CONSTANT(INSTANCE_FLAG_MAX);
 
 	BIND_ENUM_CONSTANT(SHADOW_CASTING_SETTING_OFF);

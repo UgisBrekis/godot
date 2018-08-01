@@ -342,11 +342,11 @@ void ScriptEditor::_save_history() {
 
 		if (Object::cast_to<ScriptEditorBase>(n)) {
 
-			history[history_pos].state = Object::cast_to<ScriptEditorBase>(n)->get_edit_state();
+			history.write[history_pos].state = Object::cast_to<ScriptEditorBase>(n)->get_edit_state();
 		}
 		if (Object::cast_to<EditorHelp>(n)) {
 
-			history[history_pos].state = Object::cast_to<EditorHelp>(n)->get_scroll();
+			history.write[history_pos].state = Object::cast_to<EditorHelp>(n)->get_scroll();
 		}
 	}
 
@@ -373,11 +373,11 @@ void ScriptEditor::_go_to_tab(int p_idx) {
 
 		if (Object::cast_to<ScriptEditorBase>(n)) {
 
-			history[history_pos].state = Object::cast_to<ScriptEditorBase>(n)->get_edit_state();
+			history.write[history_pos].state = Object::cast_to<ScriptEditorBase>(n)->get_edit_state();
 		}
 		if (Object::cast_to<EditorHelp>(n)) {
 
-			history[history_pos].state = Object::cast_to<EditorHelp>(n)->get_scroll();
+			history.write[history_pos].state = Object::cast_to<EditorHelp>(n)->get_scroll();
 		}
 	}
 
@@ -1876,6 +1876,7 @@ bool ScriptEditor::edit(const RES &p_resource, int p_line, int p_col, bool p_gra
 
 	if ((debugger->get_dump_stack_script() != p_resource || debugger->get_debug_with_external_editor()) &&
 			p_resource->get_path().is_resource_file() &&
+			p_resource->get_class_name() != StringName("VisualScript") &&
 			bool(EditorSettings::get_singleton()->get("text_editor/external/use_external_editor"))) {
 
 		String path = EditorSettings::get_singleton()->get("text_editor/external/exec_path");
@@ -2401,26 +2402,25 @@ void ScriptEditor::_make_script_list_context_menu() {
 	if (se) {
 		context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/save"), FILE_SAVE);
 		context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/save_as"), FILE_SAVE_AS);
-		context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/close_file"), FILE_CLOSE);
-		context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/close_all"), CLOSE_ALL);
-		context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/close_other_tabs"), CLOSE_OTHER_TABS);
-		context_menu->add_separator();
+	}
+	context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/close_file"), FILE_CLOSE);
+	context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/close_all"), CLOSE_ALL);
+	context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/close_other_tabs"), CLOSE_OTHER_TABS);
+	context_menu->add_separator();
+	if (se) {
+		Ref<Script> scr = se->get_edited_resource();
+		if (scr != NULL) {
+			context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/reload_script_soft"), FILE_TOOL_RELOAD_SOFT);
+			if (!scr.is_null() && scr->is_tool()) {
+				context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/run_file"), FILE_RUN);
+				context_menu->add_separator();
+			}
+		}
 		context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/copy_path"), FILE_COPY_PATH);
 		context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/show_in_file_system"), SHOW_IN_FILE_SYSTEM);
+		context_menu->add_separator();
 	}
 
-	Ref<Script> scr = se->get_edited_resource();
-	if (scr != NULL) {
-		context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/reload_script_soft"), FILE_TOOL_RELOAD_SOFT);
-		if (!scr.is_null() && scr->is_tool()) {
-			context_menu->add_separator();
-			context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/run_file"), FILE_RUN);
-		}
-	} else {
-		context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/close_file"), FILE_CLOSE);
-	}
-
-	context_menu->add_separator();
 	context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/window_move_up"), WINDOW_MOVE_UP);
 	context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/window_move_down"), WINDOW_MOVE_DOWN);
 	context_menu->add_shortcut(ED_GET_SHORTCUT("script_editor/window_sort"), WINDOW_SORT);
@@ -2612,11 +2612,11 @@ void ScriptEditor::_update_history_pos(int p_new_pos) {
 
 	if (Object::cast_to<ScriptEditorBase>(n)) {
 
-		history[history_pos].state = Object::cast_to<ScriptEditorBase>(n)->get_edit_state();
+		history.write[history_pos].state = Object::cast_to<ScriptEditorBase>(n)->get_edit_state();
 	}
 	if (Object::cast_to<EditorHelp>(n)) {
 
-		history[history_pos].state = Object::cast_to<EditorHelp>(n)->get_scroll();
+		history.write[history_pos].state = Object::cast_to<EditorHelp>(n)->get_scroll();
 	}
 
 	history_pos = p_new_pos;
@@ -2901,6 +2901,7 @@ ScriptEditor::ScriptEditor(EditorNode *p_editor) {
 	context_menu = memnew(PopupMenu);
 	add_child(context_menu);
 	context_menu->connect("id_pressed", this, "_menu_option");
+	context_menu->set_hide_on_window_lose_focus(true);
 
 	overview_vbox = memnew(VBoxContainer);
 	overview_vbox->set_custom_minimum_size(Size2(0, 90));
@@ -2955,6 +2956,7 @@ ScriptEditor::ScriptEditor(EditorNode *p_editor) {
 	file_menu = memnew(MenuButton);
 	menu_hb->add_child(file_menu);
 	file_menu->set_text(TTR("File"));
+	file_menu->get_popup()->set_hide_on_window_lose_focus(true);
 	file_menu->get_popup()->add_shortcut(ED_SHORTCUT("script_editor/new", TTR("New")), FILE_NEW);
 	file_menu->get_popup()->add_shortcut(ED_SHORTCUT("script_editor/open", TTR("Open")), FILE_OPEN);
 	file_menu->get_popup()->add_submenu_item(TTR("Open Recent"), "RecentScripts", FILE_OPEN_RECENT);
@@ -3004,6 +3006,7 @@ ScriptEditor::ScriptEditor(EditorNode *p_editor) {
 	script_search_menu = memnew(MenuButton);
 	menu_hb->add_child(script_search_menu);
 	script_search_menu->set_text(TTR("Search"));
+	script_search_menu->get_popup()->set_hide_on_window_lose_focus(true);
 	script_search_menu->get_popup()->add_shortcut(ED_SHORTCUT("script_editor/find", TTR("Find..."), KEY_MASK_CMD | KEY_F), HELP_SEARCH_FIND);
 	script_search_menu->get_popup()->add_shortcut(ED_SHORTCUT("script_editor/find_next", TTR("Find Next"), KEY_F3), HELP_SEARCH_FIND_NEXT);
 	script_search_menu->get_popup()->connect("id_pressed", this, "_menu_option");
@@ -3012,6 +3015,7 @@ ScriptEditor::ScriptEditor(EditorNode *p_editor) {
 	debug_menu = memnew(MenuButton);
 	menu_hb->add_child(debug_menu);
 	debug_menu->set_text(TTR("Debug"));
+	debug_menu->get_popup()->set_hide_on_window_lose_focus(true);
 	debug_menu->get_popup()->add_shortcut(ED_SHORTCUT("debugger/step_over", TTR("Step Over"), KEY_F10), DEBUG_NEXT);
 	debug_menu->get_popup()->add_shortcut(ED_SHORTCUT("debugger/step_into", TTR("Step Into"), KEY_F11), DEBUG_STEP);
 	debug_menu->get_popup()->add_separator();

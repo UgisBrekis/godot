@@ -529,8 +529,8 @@ void TileMap::update_dirty_quadrants() {
 								{
 									PoolVector<Vector2>::Read vr = navigation_polygon_vertices.read();
 									for (int i = 0; i < vsize; i++) {
-										vertices[i] = vr[i];
-										colors[i] = debug_navigation_color;
+										vertices.write[i] = vr[i];
+										colors.write[i] = debug_navigation_color;
 									}
 								}
 
@@ -1611,7 +1611,7 @@ void TileMap::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_cell", "x", "y", "tile", "flip_x", "flip_y", "transpose", "autotile_coord"), &TileMap::set_cell, DEFVAL(false), DEFVAL(false), DEFVAL(false), DEFVAL(Vector2()));
 	ClassDB::bind_method(D_METHOD("set_cellv", "position", "tile", "flip_x", "flip_y", "transpose"), &TileMap::set_cellv, DEFVAL(false), DEFVAL(false), DEFVAL(false));
-	ClassDB::bind_method(D_METHOD("set_celld", "data"), &TileMap::set_celld);
+	ClassDB::bind_method(D_METHOD("set_celld", "position", "data"), &TileMap::set_celld);
 	ClassDB::bind_method(D_METHOD("get_cell", "x", "y"), &TileMap::get_cell);
 	ClassDB::bind_method(D_METHOD("get_cellv", "position"), &TileMap::get_cellv);
 	ClassDB::bind_method(D_METHOD("is_cell_x_flipped", "x", "y"), &TileMap::is_cell_x_flipped);

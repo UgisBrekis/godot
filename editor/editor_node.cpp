@@ -62,6 +62,7 @@
 #include "editor/import/editor_scene_importer_gltf.h"
 #include "editor/import/resource_importer_bitmask.h"
 #include "editor/import/resource_importer_csv_translation.h"
+#include "editor/import/resource_importer_image.h"
 #include "editor/import/resource_importer_obj.h"
 #include "editor/import/resource_importer_scene.h"
 #include "editor/import/resource_importer_texture.h"
@@ -946,8 +947,6 @@ void EditorNode::_save_scene_with_preview(String p_file, int p_idx) {
 		int x = (img->get_width() - vp_size) / 2;
 		int y = (img->get_height() - vp_size) / 2;
 
-		img->convert(Image::FORMAT_RGB8);
-
 		if (vp_size < preview_size) {
 			// just square it.
 			img->crop_from_point(x, y, vp_size, vp_size);
@@ -962,6 +961,7 @@ void EditorNode::_save_scene_with_preview(String p_file, int p_idx) {
 			// We could get better pictures with better filters
 			img->resize(preview_size, preview_size, Image::INTERPOLATE_CUBIC);
 		}
+		img->convert(Image::FORMAT_RGB8);
 
 		img->flip_y();
 
@@ -1502,7 +1502,7 @@ void EditorNode::_edit_current() {
 		if (main_plugin) {
 
 			// special case if use of external editor is true
-			if (main_plugin->get_name() == "Script" && (bool(EditorSettings::get_singleton()->get("text_editor/external/use_external_editor")) || overrides_external_editor(current_obj))) {
+			if (main_plugin->get_name() == "Script" && current_obj->get_class_name() != StringName("VisualScript") && (bool(EditorSettings::get_singleton()->get("text_editor/external/use_external_editor")) || overrides_external_editor(current_obj))) {
 				if (!changing_scene)
 					main_plugin->edit(current_obj);
 			}
@@ -1752,6 +1752,11 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 				break;
 			} else {
 				tab_closing = editor_data.get_edited_scene();
+			}
+			if (!editor_data.get_edited_scene_root(tab_closing)) {
+				// empty tab
+				_scene_tab_closed(tab_closing);
+				break;
 			}
 
 		} // fallthrough
@@ -2047,6 +2052,10 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 
 			project_settings->popup_project_settings();
 		} break;
+		case RUN_PROJECT_DATA_FOLDER: {
+
+			OS::get_singleton()->shell_open(OS::get_singleton()->get_user_data_dir());
+		} break;
 		case FILE_QUIT:
 		case RUN_PROJECT_MANAGER: {
 
@@ -2178,6 +2187,14 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 		case SETTINGS_PREFERENCES: {
 
 			settings_config_dialog->popup_edit_settings();
+		} break;
+		case SETTINGS_EDITOR_DATA_FOLDER: {
+
+			OS::get_singleton()->shell_open(EditorSettings::get_singleton()->get_data_dir());
+		} break;
+		case SETTINGS_EDITOR_CONFIG_FOLDER: {
+
+			OS::get_singleton()->shell_open(EditorSettings::get_singleton()->get_settings_dir());
 		} break;
 		case SETTINGS_MANAGE_EXPORT_TEMPLATES: {
 
@@ -3833,6 +3850,7 @@ void EditorNode::_scene_tab_input(const Ref<InputEvent> &p_input) {
 	Ref<InputEventMouseButton> mb = p_input;
 
 	if (mb.is_valid()) {
+
 		if (scene_tabs->get_hovered_tab() >= 0) {
 			if (mb->get_button_index() == BUTTON_MIDDLE && mb->is_pressed()) {
 				_scene_tab_closed(scene_tabs->get_hovered_tab());
@@ -3841,6 +3859,26 @@ void EditorNode::_scene_tab_input(const Ref<InputEvent> &p_input) {
 			if ((mb->get_button_index() == BUTTON_LEFT && mb->is_doubleclick()) || (mb->get_button_index() == BUTTON_MIDDLE && mb->is_pressed())) {
 				_menu_option_confirm(FILE_NEW_SCENE, true);
 			}
+		}
+		if (mb->get_button_index() == BUTTON_RIGHT && mb->is_pressed()) {
+
+			// context menu
+			scene_tabs_context_menu->clear();
+			scene_tabs_context_menu->set_size(Size2(1, 1));
+
+			scene_tabs_context_menu->add_shortcut(ED_GET_SHORTCUT("editor/new_scene"), FILE_NEW_SCENE);
+			if (scene_tabs->get_hovered_tab() >= 0) {
+				scene_tabs_context_menu->add_shortcut(ED_GET_SHORTCUT("editor/save_scene"), FILE_SAVE_SCENE);
+				scene_tabs_context_menu->add_shortcut(ED_GET_SHORTCUT("editor/save_scene_as"), FILE_SAVE_AS_SCENE);
+			}
+			scene_tabs_context_menu->add_shortcut(ED_GET_SHORTCUT("editor/save_all_scenes"), FILE_SAVE_ALL_SCENES);
+			if (scene_tabs->get_hovered_tab() >= 0) {
+				scene_tabs_context_menu->add_separator();
+				scene_tabs_context_menu->add_item(TTR("Play This Scene"), RUN_PLAY_SCENE);
+				scene_tabs_context_menu->add_item(TTR("Close Tab"), FILE_CLOSE);
+			}
+			scene_tabs_context_menu->set_position(mb->get_global_position());
+			scene_tabs_context_menu->popup();
 		}
 	}
 }
@@ -3935,7 +3973,7 @@ void EditorNode::raise_bottom_panel_item(Control *p_item) {
 
 		if (bottom_panel_items[i].control == p_item) {
 			bottom_panel_items[i].button->raise();
-			SWAP(bottom_panel_items[i], bottom_panel_items[bottom_panel_items.size() - 1]);
+			SWAP(bottom_panel_items.write[i], bottom_panel_items.write[bottom_panel_items.size() - 1]);
 			break;
 		}
 	}
@@ -4627,6 +4665,10 @@ EditorNode::EditorNode() {
 		import_texture.instance();
 		ResourceFormatImporter::get_singleton()->add_importer(import_texture);
 
+		Ref<ResourceImporterImage> import_image;
+		import_image.instance();
+		ResourceFormatImporter::get_singleton()->add_importer(import_image);
+
 		Ref<ResourceImporterCSVTranslation> import_csv_translation;
 		import_csv_translation.instance();
 		ResourceFormatImporter::get_singleton()->add_importer(import_csv_translation);
@@ -4897,6 +4939,7 @@ EditorNode::EditorNode() {
 	scene_tabs = memnew(Tabs);
 	scene_tabs->add_style_override("tab_fg", gui_base->get_stylebox("SceneTabFG", "EditorStyles"));
 	scene_tabs->add_style_override("tab_bg", gui_base->get_stylebox("SceneTabBG", "EditorStyles"));
+	scene_tabs->set_select_with_rmb(true);
 	scene_tabs->add_tab("unsaved");
 	scene_tabs->set_tab_align(Tabs::ALIGN_LEFT);
 	scene_tabs->set_tab_close_display_policy((bool(EDITOR_DEF("interface/scene_tabs/always_show_close_button", false)) ? Tabs::CLOSE_BUTTON_SHOW_ALWAYS : Tabs::CLOSE_BUTTON_SHOW_ACTIVE_ONLY));
@@ -4913,6 +4956,11 @@ EditorNode::EditorNode() {
 
 	tabbar_container = memnew(HBoxContainer);
 	scene_tabs->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+
+	scene_tabs_context_menu = memnew(PopupMenu);
+	tabbar_container->add_child(scene_tabs_context_menu);
+	scene_tabs_context_menu->connect("id_pressed", this, "_menu_option");
+	scene_tabs_context_menu->set_hide_on_window_lose_focus(true);
 
 	srt->add_child(tabbar_container);
 	tabbar_container->add_child(scene_tabs);
@@ -5020,6 +5068,7 @@ EditorNode::EditorNode() {
 
 	file_menu->set_tooltip(TTR("Operations with scene files."));
 	p = file_menu->get_popup();
+	p->set_hide_on_window_lose_focus(true);
 	p->add_shortcut(ED_SHORTCUT("editor/new_scene", TTR("New Scene")), FILE_NEW_SCENE);
 	p->add_shortcut(ED_SHORTCUT("editor/new_inherited_scene", TTR("New Inherited Scene...")), FILE_NEW_INHERITED_SCENE);
 	p->add_shortcut(ED_SHORTCUT("editor/open_scene", TTR("Open Scene..."), KEY_MASK_CMD + KEY_O), FILE_OPEN_SCENE);
@@ -5065,6 +5114,7 @@ EditorNode::EditorNode() {
 	left_menu_hb->add_child(project_menu);
 
 	p = project_menu->get_popup();
+	p->set_hide_on_window_lose_focus(true);
 	p->add_item(TTR("Project Settings"), RUN_SETTINGS);
 	p->add_separator();
 	p->connect("id_pressed", this, "_menu_option");
@@ -5076,6 +5126,9 @@ EditorNode::EditorNode() {
 	p->add_child(tool_menu);
 	p->add_submenu_item(TTR("Tools"), "Tools");
 	tool_menu->add_item(TTR("Orphan Resource Explorer"), TOOLS_ORPHAN_RESOURCES);
+	p->add_separator();
+
+	p->add_item(TTR("Open Project Data Folder"), RUN_PROJECT_DATA_FOLDER);
 	p->add_separator();
 
 #ifdef OSX_ENABLED
@@ -5097,6 +5150,7 @@ EditorNode::EditorNode() {
 	left_menu_hb->add_child(debug_menu);
 
 	p = debug_menu->get_popup();
+	p->set_hide_on_window_lose_focus(true);
 	p->set_hide_on_item_selection(false);
 	p->add_check_item(TTR("Deploy with Remote Debug"), RUN_DEPLOY_REMOTE_DEBUG);
 	p->set_item_tooltip(p->get_item_count() - 1, TTR("When exporting or deploying, the resulting executable will attempt to connect to the IP of this computer in order to be debugged."));
@@ -5121,10 +5175,12 @@ EditorNode::EditorNode() {
 	settings_menu->set_text(TTR("Editor"));
 	settings_menu->add_style_override("hover", gui_base->get_stylebox("MenuHover", "EditorStyles"));
 	left_menu_hb->add_child(settings_menu);
-	p = settings_menu->get_popup();
 
+	p = settings_menu->get_popup();
+	p->set_hide_on_window_lose_focus(true);
 	p->add_item(TTR("Editor Settings"), SETTINGS_PREFERENCES);
 	p->add_separator();
+
 	editor_layouts = memnew(PopupMenu);
 	editor_layouts->set_name("Layouts");
 	p->add_child(editor_layouts);
@@ -5136,6 +5192,17 @@ EditorNode::EditorNode() {
 	p->add_shortcut(ED_SHORTCUT("editor/fullscreen_mode", TTR("Toggle Fullscreen"), KEY_MASK_SHIFT | KEY_F11), SETTINGS_TOGGLE_FULLSCREEN);
 #endif
 	p->add_separator();
+
+	if (OS::get_singleton()->get_data_path() == OS::get_singleton()->get_config_path()) {
+		// Configuration and data folders are located in the same place (Windows/macOS)
+		p->add_item(TTR("Open Editor Data/Settings Folder"), SETTINGS_EDITOR_DATA_FOLDER);
+	} else {
+		// Separate configuration and data folders (Linux)
+		p->add_item(TTR("Open Editor Data Folder"), SETTINGS_EDITOR_DATA_FOLDER);
+		p->add_item(TTR("Open Editor Settings Folder"), SETTINGS_EDITOR_CONFIG_FOLDER);
+	}
+	p->add_separator();
+
 	p->add_item(TTR("Manage Export Templates"), SETTINGS_MANAGE_EXPORT_TEMPLATES);
 
 	// Help Menu
@@ -5146,6 +5213,7 @@ EditorNode::EditorNode() {
 	left_menu_hb->add_child(help_menu);
 
 	p = help_menu->get_popup();
+	p->set_hide_on_window_lose_focus(true);
 	p->connect("id_pressed", this, "_menu_option");
 	p->add_icon_item(gui_base->get_icon("ClassList", "EditorIcons"), TTR("Classes"), HELP_CLASSES);
 	p->add_icon_item(gui_base->get_icon("HelpSearch", "EditorIcons"), TTR("Search"), HELP_SEARCH);
