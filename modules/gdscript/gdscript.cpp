@@ -181,7 +181,11 @@ Variant GDScript::_new(const Variant **p_args, int p_argcount, Variant::CallErro
 
 bool GDScript::can_instance() const {
 
-	return valid || (!tool && !ScriptServer::is_scripting_enabled());
+#ifdef TOOLS_ENABLED
+	return valid && (tool || ScriptServer::is_scripting_enabled());
+#else
+	return valid;
+#endif
 }
 
 Ref<Script> GDScript::get_base_script() const {
@@ -310,27 +314,6 @@ bool GDScript::get_property_default_value(const StringName &p_property, Variant 
 
 ScriptInstance *GDScript::instance_create(Object *p_this) {
 
-	if (!tool && !ScriptServer::is_scripting_enabled()) {
-
-#ifdef TOOLS_ENABLED
-
-		//instance a fake script for editing the values
-		//plist.invert();
-
-		/*print_line("CREATING PLACEHOLDER");
-		for(List<PropertyInfo>::Element *E=plist.front();E;E=E->next()) {
-			print_line(E->get().name);
-		}*/
-		PlaceHolderScriptInstance *si = memnew(PlaceHolderScriptInstance(GDScriptLanguage::get_singleton(), Ref<Script>(this), p_this));
-		placeholders.insert(si);
-		//_update_placeholder(si);
-		_update_exports();
-		return si;
-#else
-		return NULL;
-#endif
-	}
-
 	GDScript *top = this;
 	while (top->_base)
 		top = top->_base;
@@ -349,6 +332,27 @@ ScriptInstance *GDScript::instance_create(Object *p_this) {
 	Variant::CallError unchecked_error;
 	return _create_instance(NULL, 0, p_this, Object::cast_to<Reference>(p_this), unchecked_error);
 }
+
+PlaceHolderScriptInstance *GDScript::placeholder_instance_create(Object *p_this) {
+#ifdef TOOLS_ENABLED
+
+	//instance a fake script for editing the values
+	//plist.invert();
+
+	/*print_line("CREATING PLACEHOLDER");
+		for(List<PropertyInfo>::Element *E=plist.front();E;E=E->next()) {
+			print_line(E->get().name);
+		}*/
+	PlaceHolderScriptInstance *si = memnew(PlaceHolderScriptInstance(GDScriptLanguage::get_singleton(), Ref<Script>(this), p_this));
+	placeholders.insert(si);
+	//_update_placeholder(si);
+	_update_exports();
+	return si;
+#else
+	return NULL;
+#endif
+}
+
 bool GDScript::instance_has(const Object *p_this) const {
 
 #ifndef NO_THREADS
@@ -480,6 +484,10 @@ bool GDScript::_update_exports() {
 			for (int i = 0; i < c->_signals.size(); i++) {
 				_signals[c->_signals[i].name] = c->_signals[i].arguments;
 			}
+		} else {
+			for (Set<PlaceHolderScriptInstance *>::Element *E = placeholders.front(); E; E = E->next()) {
+				E->get()->set_build_failed(true);
+			}
 		}
 	} else {
 		//print_line("unchanged is "+get_path());
@@ -501,7 +509,7 @@ bool GDScript::_update_exports() {
 		_update_exports_values(values, propnames);
 
 		for (Set<PlaceHolderScriptInstance *>::Element *E = placeholders.front(); E; E = E->next()) {
-
+			E->get()->set_build_failed(false);
 			E->get()->update(propnames, values);
 		}
 	}
@@ -1803,7 +1811,7 @@ bool GDScriptLanguage::handles_global_class_type(const String &p_type) const {
 	return p_type == "GDScript";
 }
 
-String GDScriptLanguage::get_global_class_name(const String &p_path, String *r_base_type) const {
+String GDScriptLanguage::get_global_class_name(const String &p_path, String *r_base_type, String *r_icon_path) const {
 
 	PoolVector<uint8_t> sourcef;
 	Error err;
@@ -1867,6 +1875,12 @@ String GDScriptLanguage::get_global_class_name(const String &p_path, String *r_b
 					*r_base_type = "Reference";
 				}
 			}
+		}
+		if (r_icon_path) {
+			if (c->icon_path.empty() || c->icon_path.is_abs_path())
+				*r_icon_path = c->icon_path;
+			else if (c->icon_path.is_rel_path())
+				*r_icon_path = p_path.get_base_dir().plus_file(c->icon_path).simplify_path();
 		}
 		return c->name;
 	}

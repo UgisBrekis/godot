@@ -1049,10 +1049,8 @@ void PopupMenu::activate_item(int p_item) {
 	ERR_FAIL_INDEX(p_item, items.size());
 	ERR_FAIL_COND(items[p_item].separator);
 	int id = items[p_item].ID >= 0 ? items[p_item].ID : p_item;
-	emit_signal("id_pressed", id);
-	emit_signal("index_pressed", p_item);
 
-	//hide all parent PopupMenue's
+	//hide all parent PopupMenus
 	Node *next = get_parent();
 	PopupMenu *pop = Object::cast_to<PopupMenu>(next);
 	while (pop) {
@@ -1072,6 +1070,9 @@ void PopupMenu::activate_item(int p_item) {
 		next = next->get_parent();
 		pop = Object::cast_to<PopupMenu>(next);
 	}
+
+	emit_signal("id_pressed", id);
+	emit_signal("index_pressed", p_item);
 
 	// Hides popup by default; unless otherwise specified
 	// by using set_hide_on_item_selection and set_hide_on_checkable_item_selection

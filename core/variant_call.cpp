@@ -339,6 +339,7 @@ struct _VariantCall {
 	VCALL_LOCALMEM0R(Vector2, is_normalized);
 	VCALL_LOCALMEM1R(Vector2, distance_to);
 	VCALL_LOCALMEM1R(Vector2, distance_squared_to);
+	VCALL_LOCALMEM1R(Vector2, project);
 	VCALL_LOCALMEM1R(Vector2, angle_to);
 	VCALL_LOCALMEM1R(Vector2, angle_to_point);
 	VCALL_LOCALMEM2R(Vector2, linear_interpolate);
@@ -395,6 +396,7 @@ struct _VariantCall {
 	VCALL_LOCALMEM0R(Vector3, round);
 	VCALL_LOCALMEM1R(Vector3, distance_to);
 	VCALL_LOCALMEM1R(Vector3, distance_squared_to);
+	VCALL_LOCALMEM1R(Vector3, project);
 	VCALL_LOCALMEM1R(Vector3, angle_to);
 	VCALL_LOCALMEM1R(Vector3, slide);
 	VCALL_LOCALMEM1R(Vector3, bounce);
@@ -1159,7 +1161,7 @@ Variant Variant::construct(const Variant::Type p_type, const Variant **p_args, i
 				return Variant(bool(*p_args[0]));
 			}
 			case INT: {
-				return (int(*p_args[0]));
+				return (int64_t(*p_args[0]));
 			}
 			case REAL: {
 				return real_t(*p_args[0]);
@@ -1551,6 +1553,7 @@ void register_variant_methods() {
 	ADDFUNC0R(VECTOR2, BOOL, Vector2, is_normalized, varray());
 	ADDFUNC1R(VECTOR2, REAL, Vector2, distance_to, VECTOR2, "to", varray());
 	ADDFUNC1R(VECTOR2, REAL, Vector2, distance_squared_to, VECTOR2, "to", varray());
+	ADDFUNC1R(VECTOR2, VECTOR2, Vector2, project, VECTOR2, "b", varray());
 	ADDFUNC1R(VECTOR2, REAL, Vector2, angle_to, VECTOR2, "to", varray());
 	ADDFUNC1R(VECTOR2, REAL, Vector2, angle_to_point, VECTOR2, "to", varray());
 	ADDFUNC2R(VECTOR2, VECTOR2, Vector2, linear_interpolate, VECTOR2, "b", REAL, "t", varray());
@@ -1606,6 +1609,7 @@ void register_variant_methods() {
 	ADDFUNC0R(VECTOR3, VECTOR3, Vector3, round, varray());
 	ADDFUNC1R(VECTOR3, REAL, Vector3, distance_to, VECTOR3, "b", varray());
 	ADDFUNC1R(VECTOR3, REAL, Vector3, distance_squared_to, VECTOR3, "b", varray());
+	ADDFUNC1R(VECTOR3, VECTOR3, Vector3, project, VECTOR3, "b", varray());
 	ADDFUNC1R(VECTOR3, REAL, Vector3, angle_to, VECTOR3, "to", varray());
 	ADDFUNC1R(VECTOR3, VECTOR3, Vector3, slide, VECTOR3, "n", varray());
 	ADDFUNC1R(VECTOR3, VECTOR3, Vector3, bounce, VECTOR3, "n", varray());
@@ -1668,7 +1672,7 @@ void register_variant_methods() {
 	ADDFUNC0NC(DICTIONARY, NIL, Dictionary, clear, varray());
 	ADDFUNC1R(DICTIONARY, BOOL, Dictionary, has, NIL, "key", varray());
 	ADDFUNC1R(DICTIONARY, BOOL, Dictionary, has_all, ARRAY, "keys", varray());
-	ADDFUNC1(DICTIONARY, NIL, Dictionary, erase, NIL, "key", varray());
+	ADDFUNC1R(DICTIONARY, BOOL, Dictionary, erase, NIL, "key", varray());
 	ADDFUNC0R(DICTIONARY, INT, Dictionary, hash, varray());
 	ADDFUNC0R(DICTIONARY, ARRAY, Dictionary, keys, varray());
 	ADDFUNC0R(DICTIONARY, ARRAY, Dictionary, values, varray());

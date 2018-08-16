@@ -411,6 +411,18 @@ void EditorNode::_notification(int p_what) {
 	}
 }
 
+void EditorNode::_on_plugin_ready(Object *p_script, const String &p_activate_name) {
+	Ref<Script> script = Object::cast_to<Script>(p_script);
+	if (script.is_null())
+		return;
+	if (p_activate_name.length()) {
+		set_addon_plugin_enabled(p_activate_name, true);
+	}
+	project_settings->update_plugins();
+	project_settings->hide();
+	push_item(script.operator->());
+}
+
 void EditorNode::_fs_changed() {
 
 	for (Set<FileDialog *>::Element *E = file_dialogs.front(); E; E = E->next()) {
@@ -2547,6 +2559,7 @@ void EditorNode::set_addon_plugin_enabled(const String &p_addon, bool p_enabled)
 
 	EditorPlugin *ep = memnew(EditorPlugin);
 	ep->set_script(script.get_ref_ptr());
+	ep->set_dir_cache(p_addon);
 	plugin_addons[p_addon] = ep;
 	add_editor_plugin(ep);
 
@@ -4548,6 +4561,8 @@ void EditorNode::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_resources_reimported"), &EditorNode::_resources_reimported);
 	ClassDB::bind_method(D_METHOD("_bottom_panel_raise_toggled"), &EditorNode::_bottom_panel_raise_toggled);
 
+	ClassDB::bind_method(D_METHOD("_on_plugin_ready"), &EditorNode::_on_plugin_ready);
+
 	ClassDB::bind_method(D_METHOD("_video_driver_selected"), &EditorNode::_video_driver_selected);
 
 	ADD_SIGNAL(MethodInfo("play_pressed"));
@@ -4566,7 +4581,7 @@ static Node *_resource_get_edited_scene() {
 
 void EditorNode::_print_handler(void *p_this, const String &p_string, bool p_error) {
 	EditorNode *en = (EditorNode *)p_this;
-	en->log->add_message(p_string, p_error);
+	en->log->add_message(p_string, p_error ? EditorLog::MSG_TYPE_ERROR : EditorLog::MSG_TYPE_STD);
 }
 
 EditorNode::EditorNode() {
@@ -4776,7 +4791,7 @@ EditorNode::EditorNode() {
 	EDITOR_DEF("interface/inspector/horizontal_vector2_editing", false);
 	EDITOR_DEF("interface/inspector/horizontal_vector3_editing", true);
 	EDITOR_DEF("interface/inspector/open_resources_in_current_inspector", true);
-	EDITOR_DEF("interface/inspector/resources_types_to_open_in_new_inspector", "SpatialMaterial");
+	EDITOR_DEF("interface/inspector/resources_types_to_open_in_new_inspector", "SpatialMaterial,Script");
 	EDITOR_DEF("run/auto_save/save_before_running", true);
 
 	theme_base = memnew(Control);
@@ -5134,6 +5149,10 @@ EditorNode::EditorNode() {
 	p->connect("id_pressed", this, "_menu_option");
 	p->add_item(TTR("Export"), FILE_EXPORT_PROJECT);
 
+	plugin_config_dialog = memnew(PluginConfigDialog);
+	plugin_config_dialog->connect("plugin_ready", this, "_on_plugin_ready");
+	gui_base->add_child(plugin_config_dialog);
+
 	tool_menu = memnew(PopupMenu);
 	tool_menu->set_name("Tools");
 	tool_menu->connect("index_pressed", this, "_tool_menu_option");
@@ -5409,7 +5428,7 @@ EditorNode::EditorNode() {
 	}
 
 	filesystem_dock = memnew(FileSystemDock(this));
-	filesystem_dock->set_display_mode(int(EditorSettings::get_singleton()->get("docks/filesystem/display_mode")));
+	filesystem_dock->set_file_list_display_mode(int(EditorSettings::get_singleton()->get("docks/filesystem/display_mode")));
 
 	if (use_single_dock_column) {
 		dock_slot[DOCK_SLOT_RIGHT_BL]->add_child(filesystem_dock);
@@ -5448,6 +5467,7 @@ EditorNode::EditorNode() {
 	bottom_panel->add_child(bottom_panel_vb);
 
 	bottom_panel_hb = memnew(HBoxContainer);
+	bottom_panel_hb->set_custom_minimum_size(Size2(0, 24)); // Adjust for the height of the "Expand Bottom Dock" icon.
 	bottom_panel_vb->add_child(bottom_panel_hb);
 
 	bottom_panel_hb_editors = memnew(HBoxContainer);
