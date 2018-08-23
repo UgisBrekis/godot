@@ -426,6 +426,9 @@ void TileMapEditor::_update_palette() {
 		Ref<Texture> tex = tileset->tile_get_texture(entries[i].id);
 
 		if (tex.is_valid()) {
+			Color color = tileset->tile_get_modulate(entries[i].id);
+			palette->set_item_icon_modulate(palette->get_item_count() - 1, color);
+
 			Rect2 region = tileset->tile_get_region(entries[i].id);
 
 			if (tileset->tile_get_tile_mode(entries[i].id) == TileSet::AUTO_TILE || tileset->tile_get_tile_mode(entries[i].id) == TileSet::ATLAS_TILE) {
@@ -759,10 +762,13 @@ void TileMapEditor::_draw_cell(int p_cell, const Point2i &p_point, bool p_flip_h
 	rect.position = p_xform.xform(rect.position);
 	rect.size *= sc;
 
+	Color modulate = node->get_tileset()->tile_get_modulate(p_cell);
+	modulate.a = 0.5;
+
 	if (r.has_no_area())
-		canvas_item_editor->draw_texture_rect(t, rect, false, Color(1, 1, 1, 0.5), p_transpose);
+		canvas_item_editor->draw_texture_rect(t, rect, false, modulate, p_transpose);
 	else
-		canvas_item_editor->draw_texture_rect_region(t, rect, r, Color(1, 1, 1, 0.5), p_transpose);
+		canvas_item_editor->draw_texture_rect_region(t, rect, r, modulate, p_transpose);
 }
 
 void TileMapEditor::_draw_fill_preview(int p_cell, const Point2i &p_point, bool p_flip_h, bool p_flip_v, bool p_transpose, const Transform2D &p_xform) {
@@ -1903,6 +1909,21 @@ TileMapEditor::~TileMapEditor() {
 ///////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////
 
+void TileMapEditorPlugin::_notification(int p_what) {
+
+	if (p_what == EditorSettings::NOTIFICATION_EDITOR_SETTINGS_CHANGED) {
+
+		switch ((int)EditorSettings::get_singleton()->get("editors/tile_map/editor_side")) {
+			case 0: { // Left.
+				CanvasItemEditor::get_singleton()->get_palette_split()->move_child(tile_map_editor, 0);
+			} break;
+			case 1: { // Right.
+				CanvasItemEditor::get_singleton()->get_palette_split()->move_child(tile_map_editor, 1);
+			} break;
+		}
+	}
+}
+
 void TileMapEditorPlugin::edit(Object *p_object) {
 
 	tile_map_editor->edit(Object::cast_to<Node>(p_object));
@@ -1936,11 +1957,19 @@ TileMapEditorPlugin::TileMapEditorPlugin(EditorNode *p_node) {
 	EDITOR_DEF("editors/tile_map/sort_tiles_by_name", true);
 	EDITOR_DEF("editors/tile_map/bucket_fill_preview", true);
 	EDITOR_DEF("editors/tile_map/show_tile_info_on_hover", true);
+	EDITOR_DEF("editors/tile_map/editor_side", 1);
+	EditorSettings::get_singleton()->add_property_hint(PropertyInfo(Variant::INT, "editors/tile_map/editor_side", PROPERTY_HINT_ENUM, "Left,Right"));
 
 	tile_map_editor = memnew(TileMapEditor(p_node));
-	add_control_to_container(CONTAINER_CANVAS_EDITOR_SIDE, tile_map_editor);
+	switch ((int)EditorSettings::get_singleton()->get("editors/tile_map/editor_side")) {
+		case 0: { // Left.
+			add_control_to_container(CONTAINER_CANVAS_EDITOR_SIDE_LEFT, tile_map_editor);
+		} break;
+		case 1: { // Right.
+			add_control_to_container(CONTAINER_CANVAS_EDITOR_SIDE_RIGHT, tile_map_editor);
+		} break;
+	}
 	tile_map_editor->hide();
-	tile_map_editor->set_process(true);
 }
 
 TileMapEditorPlugin::~TileMapEditorPlugin() {
