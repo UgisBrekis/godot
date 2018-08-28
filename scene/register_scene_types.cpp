@@ -150,7 +150,6 @@
 #include "scene/resources/rectangle_shape_2d.h"
 #include "scene/resources/scene_format_text.h"
 #include "scene/resources/segment_shape_2d.h"
-#include "scene/resources/shader_graph.h"
 #include "scene/resources/shape_line_2d.h"
 #include "scene/resources/sky_box.h"
 #include "scene/resources/sphere_shape.h"
@@ -564,6 +563,9 @@ void register_scene_types() {
 	/* REGISTER RESOURCES */
 
 	ClassDB::register_virtual_class<Shader>();
+	ClassDB::register_class<ParticlesMaterial>();
+	SceneTree::add_idle_callback(ParticlesMaterial::flush_changes);
+	ParticlesMaterial::init_shaders();
 
 #ifndef _3D_DISABLED
 	ClassDB::register_virtual_class<Mesh>();
@@ -580,10 +582,6 @@ void register_scene_types() {
 	ClassDB::register_class<SpatialMaterial>();
 	SceneTree::add_idle_callback(SpatialMaterial::flush_changes);
 	SpatialMaterial::init_shaders();
-
-	ClassDB::register_class<ParticlesMaterial>();
-	SceneTree::add_idle_callback(ParticlesMaterial::flush_changes);
-	ParticlesMaterial::init_shaders();
 
 	ClassDB::register_class<MultiMesh>();
 	ClassDB::register_class<MeshLibrary>();

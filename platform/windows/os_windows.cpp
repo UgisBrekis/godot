@@ -190,28 +190,6 @@ BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
 	}
 }
 
-BOOL CALLBACK _CloseWindowsEnum(HWND hWnd, LPARAM lParam) {
-	DWORD dwID;
-
-	GetWindowThreadProcessId(hWnd, &dwID);
-
-	if (dwID == (DWORD)lParam) {
-		PostMessage(hWnd, WM_CLOSE, 0, 0);
-	}
-
-	return TRUE;
-}
-
-bool _close_gracefully(const PROCESS_INFORMATION &pi, const DWORD dwStopWaitMsec) {
-	if (!EnumWindows(_CloseWindowsEnum, pi.dwProcessId))
-		return false;
-
-	if (WaitForSingleObject(pi.hProcess, dwStopWaitMsec) != WAIT_OBJECT_0)
-		return false;
-
-	return true;
-}
-
 void OS_Windows::initialize_debugging() {
 
 	SetConsoleCtrlHandler(HandlerRoutine, TRUE);
@@ -449,7 +427,7 @@ LRESULT OS_Windows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 				input->set_mouse_position(c);
 				mm->set_speed(Vector2(0, 0));
 
-				if (raw->data.mouse.usFlags ==MOUSE_MOVE_RELATIVE) {
+				if (raw->data.mouse.usFlags == MOUSE_MOVE_RELATIVE) {
 					mm->set_relative(Vector2(raw->data.mouse.lLastX, raw->data.mouse.lLastY));
 
 				} else if (raw->data.mouse.usFlags == MOUSE_MOVE_ABSOLUTE) {
@@ -460,9 +438,8 @@ LRESULT OS_Windows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 					int nScreenTop = GetSystemMetrics(SM_YVIRTUALSCREEN);
 
 					Vector2 abs_pos(
-					 (double(raw->data.mouse.lLastX) -  65536.0 / (nScreenWidth) ) * nScreenWidth / 65536.0 + nScreenLeft,
-					 (double(raw->data.mouse.lLastY) -  65536.0 / (nScreenHeight) ) * nScreenHeight / 65536.0 + nScreenTop
-					);
+							(double(raw->data.mouse.lLastX) - 65536.0 / (nScreenWidth)) * nScreenWidth / 65536.0 + nScreenLeft,
+							(double(raw->data.mouse.lLastY) - 65536.0 / (nScreenHeight)) * nScreenHeight / 65536.0 + nScreenTop);
 
 					POINT coords; //client coords
 					coords.x = abs_pos.x;
@@ -470,15 +447,13 @@ LRESULT OS_Windows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
 					ScreenToClient(hWnd, &coords);
 
-
-					mm->set_relative(Vector2(coords.x - old_x, coords.y - old_y ));
+					mm->set_relative(Vector2(coords.x - old_x, coords.y - old_y));
 					old_x = coords.x;
 					old_y = coords.y;
 
 					/*Input.mi.dx = (int)((((double)(pos.x)-nScreenLeft) * 65536) / nScreenWidth + 65536 / (nScreenWidth));
 					Input.mi.dy = (int)((((double)(pos.y)-nScreenTop) * 65536) / nScreenHeight + 65536 / (nScreenHeight));
 					*/
-
 				}
 
 				if (window_has_focus && main_loop)
@@ -856,14 +831,6 @@ LRESULT OS_Windows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			if (ke.uMsg == WM_SYSKEYUP)
 				ke.uMsg = WM_KEYUP;
 
-			/*if (ke.uMsg==WM_KEYDOWN && alt_mem && uMsg!=WM_SYSKEYDOWN) {
-				//altgr hack for intl keyboards, not sure how good it is
-				//windows is weeeeird
-				ke.mod_state.alt=false;
-				ke.mod_state.control=false;
-				print_line("")
-			}*/
-
 			ke.wParam = wParam;
 			ke.lParam = lParam;
 			key_event_buffer[key_event_pos++] = ke;
@@ -871,7 +838,7 @@ LRESULT OS_Windows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		} break;
 		case WM_INPUTLANGCHANGEREQUEST: {
 
-			print_line("input lang change");
+			// FIXME: Do something?
 		} break;
 
 		case WM_TOUCH: {
@@ -1126,7 +1093,6 @@ Error OS_Windows::initialize(const VideoMode &p_desired, int p_video_driver, int
 	WNDCLASSEXW wc;
 
 	if (is_hidpi_allowed()) {
-		print_line("hidpi aware?");
 		HMODULE Shcore = LoadLibraryW(L"Shcore.dll");
 
 		if (Shcore != NULL) {
@@ -1200,8 +1166,6 @@ Error OS_Windows::initialize(const VideoMode &p_desired, int p_video_driver, int
 
 		WindowRect.right = data.size.width;
 		WindowRect.bottom = data.size.height;
-
-		print_line("wr right " + itos(WindowRect.right) + ", " + itos(WindowRect.bottom));
 
 		/*  DEVMODE dmScreenSettings;
 		memset(&dmScreenSettings,0,sizeof(dmScreenSettings));
@@ -1287,21 +1251,74 @@ Error OS_Windows::initialize(const VideoMode &p_desired, int p_video_driver, int
 	}
 
 #if defined(OPENGL_ENABLED)
+
+	bool gles3_context = true;
 	if (p_video_driver == VIDEO_DRIVER_GLES2) {
-		gl_context = memnew(ContextGL_Win(hWnd, false));
-		gl_context->initialize();
-
-		RasterizerGLES2::register_config();
-		RasterizerGLES2::make_current();
-	} else {
-		gl_context = memnew(ContextGL_Win(hWnd, true));
-		gl_context->initialize();
-
-		RasterizerGLES3::register_config();
-		RasterizerGLES3::make_current();
+		gles3_context = false;
 	}
 
-	video_driver_index = p_video_driver; // FIXME TODO - FIX IF DRIVER DETECTION HAPPENS AND GLES2 MUST BE USED
+	bool editor = Engine::get_singleton()->is_editor_hint();
+	bool gl_initialization_error = false;
+
+	gl_context = NULL;
+	while (!gl_context) {
+		gl_context = memnew(ContextGL_Win(hWnd, gles3_context));
+
+		if (gl_context->initialize() != OK) {
+			memdelete(gl_context);
+			gl_context = NULL;
+
+			if (GLOBAL_GET("rendering/quality/driver/driver_fallback") == "Best" || editor) {
+				if (p_video_driver == VIDEO_DRIVER_GLES2) {
+					gl_initialization_error = true;
+					break;
+				}
+
+				p_video_driver = VIDEO_DRIVER_GLES2;
+				gles3_context = false;
+			} else {
+				gl_initialization_error = true;
+				break;
+			}
+		}
+	}
+
+	while (true) {
+		if (gles3_context) {
+			if (RasterizerGLES3::is_viable() == OK) {
+				RasterizerGLES3::register_config();
+				RasterizerGLES3::make_current();
+				break;
+			} else {
+				if (GLOBAL_GET("rendering/quality/driver/driver_fallback") == "Best" || editor) {
+					p_video_driver = VIDEO_DRIVER_GLES2;
+					gles3_context = false;
+					continue;
+				} else {
+					gl_initialization_error = true;
+					break;
+				}
+			}
+		} else {
+			if (RasterizerGLES2::is_viable() == OK) {
+				RasterizerGLES2::register_config();
+				RasterizerGLES2::make_current();
+				break;
+			} else {
+				gl_initialization_error = true;
+				break;
+			}
+		}
+	}
+
+	if (gl_initialization_error) {
+		OS::get_singleton()->alert("Your video card driver does not support any of the supported OpenGL versions.\n"
+								   "Please update your drivers or if you have a very old or integrated GPU upgrade it.",
+				"Unable to initialize Video driver");
+		return ERR_UNAVAILABLE;
+	}
+
+	video_driver_index = p_video_driver;
 
 	gl_context->set_use_vsync(video_mode.use_vsync);
 #endif
@@ -1334,10 +1351,6 @@ Error OS_Windows::initialize(const VideoMode &p_desired, int p_video_driver, int
 	power_manager = memnew(PowerWindows);
 
 	AudioDriverManager::initialize(p_audio_driver);
-
-#ifdef WINMIDI_ENABLED
-	driver_midi.open();
-#endif
 
 	TRACKMOUSEEVENT tme;
 	tme.cbSize = sizeof(TRACKMOUSEEVENT);
@@ -1490,12 +1503,6 @@ void OS_Windows::finalize() {
 	if (user_proc) {
 		SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)user_proc);
 	};
-
-	/*
-	if (debugger_connection_console) {
-		memdelete(debugger_connection_console);
-	}
-	*/
 }
 
 void OS_Windows::finalize_core() {
@@ -1759,9 +1766,6 @@ void OS_Windows::set_window_fullscreen(bool p_enabled) {
 
 		if (pre_fs_valid) {
 			GetWindowRect(hWnd, &pre_fs_rect);
-			//print_line("A: "+itos(pre_fs_rect.left)+","+itos(pre_fs_rect.top)+","+itos(pre_fs_rect.right-pre_fs_rect.left)+","+itos(pre_fs_rect.bottom-pre_fs_rect.top));
-			//MapWindowPoints(hWnd, GetParent(hWnd), (LPPOINT) &pre_fs_rect, 2);
-			//print_line("B: "+itos(pre_fs_rect.left)+","+itos(pre_fs_rect.top)+","+itos(pre_fs_rect.right-pre_fs_rect.left)+","+itos(pre_fs_rect.bottom-pre_fs_rect.top));
 		}
 
 		int cs = get_current_screen();
@@ -2438,26 +2442,20 @@ Error OS_Windows::execute(const String &p_path, const List<String> &p_arguments,
 	return OK;
 };
 
-Error OS_Windows::kill(const ProcessID &p_pid, const int p_max_wait_msec) {
+Error OS_Windows::kill(const ProcessID &p_pid) {
+
 	ERR_FAIL_COND_V(!process_map->has(p_pid), FAILED);
 
 	const PROCESS_INFORMATION pi = (*process_map)[p_pid].pi;
 	process_map->erase(p_pid);
 
-	Error result;
-
-	if (p_max_wait_msec != -1 && _close_gracefully(pi, p_max_wait_msec)) {
-		result = OK;
-	} else {
-		const int ret = TerminateProcess(pi.hProcess, 0);
-		result = ret != 0 ? OK : FAILED;
-	}
+	const int ret = TerminateProcess(pi.hProcess, 0);
 
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 
-	return result;
-}
+	return ret != 0 ? OK : FAILED;
+};
 
 int OS_Windows::get_process_id() const {
 	return _getpid();
