@@ -504,6 +504,13 @@ void ScriptEditor::_open_recent_script(int p_idx) {
 			return;
 		}
 		// if it's a path then its most likely a deleted file not help
+	} else if (path.find("::") != -1) {
+		// built-in script
+		Ref<Script> script = ResourceLoader::load(path);
+		if (script.is_valid()) {
+			edit(script, true);
+			return;
+		}
 	} else if (!path.is_resource_file()) {
 		_help_class_open(path);
 		return;
@@ -939,7 +946,7 @@ void ScriptEditor::_menu_option(int p_option) {
 
 	switch (p_option) {
 		case FILE_NEW: {
-			script_create_dialog->config("Node", ".gd");
+			script_create_dialog->config("Node", "new_script");
 			script_create_dialog->popup_centered(Size2(300, 300) * EDSCALE);
 		} break;
 		case FILE_NEW_TEXTFILE: {
@@ -1742,7 +1749,7 @@ void ScriptEditor::_update_script_names() {
 				} break;
 				case DISPLAY_DIR_AND_NAME: {
 					if (!path.get_base_dir().get_file().empty()) {
-						sd.name = path.get_base_dir().get_file() + "/" + name;
+						sd.name = path.get_base_dir().get_file().plus_file(name);
 					} else {
 						sd.name = name;
 					}
@@ -1793,8 +1800,8 @@ void ScriptEditor::_update_script_names() {
 				new_cur_tab = i;
 			}
 		}
-		tab_container->call_deferred("set_current_tab", new_prev_tab);
-		tab_container->call_deferred("set_current_tab", new_cur_tab);
+		tab_container->set_current_tab(new_prev_tab);
+		tab_container->set_current_tab(new_cur_tab);
 		_sort_list_on_update = false;
 	}
 
@@ -2017,6 +2024,7 @@ bool ScriptEditor::edit(const RES &p_resource, int p_line, int p_col, bool p_gra
 		_go_to_tab(tab_container->get_tab_count() - 1);
 	}
 
+	_sort_list_on_update = true;
 	_update_script_names();
 	_save_layout();
 	se->connect("name_changed", this, "_update_script_names");
@@ -2106,8 +2114,6 @@ void ScriptEditor::_editor_play() {
 	debug_menu->get_popup()->set_item_disabled(debug_menu->get_popup()->get_item_index(DEBUG_STEP), true);
 	debug_menu->get_popup()->set_item_disabled(debug_menu->get_popup()->get_item_index(DEBUG_BREAK), false);
 	debug_menu->get_popup()->set_item_disabled(debug_menu->get_popup()->get_item_index(DEBUG_CONTINUE), true);
-
-	//debugger_gui->start_listening(Globals::get_singleton()->get("debug/debug_port"));
 }
 
 void ScriptEditor::_editor_pause() {
@@ -2591,6 +2597,7 @@ void ScriptEditor::_help_class_open(const String &p_class) {
 	eh->go_to_class(p_class, 0);
 	eh->connect("go_to_help", this, "_help_class_goto");
 	_add_recent_script(p_class);
+	_sort_list_on_update = true;
 	_update_script_names();
 	_save_layout();
 }
@@ -2620,6 +2627,7 @@ void ScriptEditor::_help_class_goto(const String &p_desc) {
 	eh->go_to_help(p_desc);
 	eh->connect("go_to_help", this, "_help_class_goto");
 	_add_recent_script(eh->get_class());
+	_sort_list_on_update = true;
 	_update_script_names();
 	_save_layout();
 }

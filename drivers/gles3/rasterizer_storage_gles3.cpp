@@ -29,8 +29,9 @@
 /*************************************************************************/
 
 #include "rasterizer_storage_gles3.h"
-#include "engine.h"
-#include "project_settings.h"
+
+#include "core/engine.h"
+#include "core/project_settings.h"
 #include "rasterizer_canvas_gles3.h"
 #include "rasterizer_scene_gles3.h"
 
@@ -1095,7 +1096,7 @@ Ref<Image> RasterizerStorageGLES3::texture_get_data(RID p_texture, int p_layer) 
 #else
 
 	ERR_EXPLAIN("Sorry, It's not possible to obtain images back in OpenGL ES");
-	return Ref<Image>();
+	ERR_FAIL_V(Ref<Image>());
 #endif
 }
 

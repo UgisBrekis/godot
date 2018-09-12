@@ -30,8 +30,8 @@
 
 #include "light.h"
 
-#include "engine.h"
-#include "project_settings.h"
+#include "core/engine.h"
+#include "core/project_settings.h"
 #include "scene/resources/surface_tool.h"
 
 bool Light::_can_gizmo_scale() const {
@@ -312,7 +312,7 @@ Light::Light(VisualServer::LightType p_type) {
 Light::Light() {
 
 	type = VisualServer::LIGHT_DIRECTIONAL;
-	ERR_PRINT("Light shouldn't be instanced dircetly, use the subtypes.");
+	ERR_PRINT("Light should not be instanced directly; use the DirectionalLight, OmniLight or SpotLight subtypes instead.");
 }
 
 Light::~Light() {

@@ -30,10 +30,10 @@
 
 #include "connections_dialog.h"
 
+#include "core/print_string.h"
 #include "editor_node.h"
 #include "editor_settings.h"
 #include "plugins/script_editor_plugin.h"
-#include "print_string.h"
 #include "scene/gui/label.h"
 #include "scene/gui/popup_menu.h"
 
@@ -341,8 +341,7 @@ ConnectDialog::ConnectDialog() {
 
 	vbc_right->add_margin_child(TTR("Add Extra Call Argument:"), add_bind_hb);
 
-	bind_editor = memnew(PropertyEditor);
-	bind_editor->hide_top_label();
+	bind_editor = memnew(EditorInspector);
 
 	vbc_right->add_margin_child(TTR("Extra Call Arguments:"), bind_editor, true);
 

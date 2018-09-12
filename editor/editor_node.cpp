@@ -1174,6 +1174,16 @@ void EditorNode::_dialog_action(String p_file) {
 			int scene_idx = (current_option == FILE_SAVE_SCENE || current_option == FILE_SAVE_AS_SCENE) ? -1 : tab_closing;
 
 			if (file->get_mode() == EditorFileDialog::MODE_SAVE_FILE) {
+				bool same_open_scene = false;
+				for (int i = 0; i < editor_data.get_edited_scene_count(); i++) {
+					if (editor_data.get_scene_path(i) == p_file && i != scene_idx)
+						same_open_scene = true;
+				}
+
+				if (same_open_scene) {
+					show_warning(TTR("Can't overwrite scene that is still open!"));
+					return;
+				}
 
 				_save_default_environment();
 				_save_scene_with_preview(p_file, scene_idx);
@@ -2068,7 +2078,7 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 		} break;
 		case RUN_PROJECT_DATA_FOLDER: {
 
-			OS::get_singleton()->shell_open(OS::get_singleton()->get_user_data_dir());
+			OS::get_singleton()->shell_open(String("file://") + OS::get_singleton()->get_user_data_dir());
 		} break;
 		case FILE_QUIT:
 		case RUN_PROJECT_MANAGER: {
@@ -2204,11 +2214,11 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 		} break;
 		case SETTINGS_EDITOR_DATA_FOLDER: {
 
-			OS::get_singleton()->shell_open(EditorSettings::get_singleton()->get_data_dir());
+			OS::get_singleton()->shell_open(String("file://") + EditorSettings::get_singleton()->get_data_dir());
 		} break;
 		case SETTINGS_EDITOR_CONFIG_FOLDER: {
 
-			OS::get_singleton()->shell_open(EditorSettings::get_singleton()->get_settings_dir());
+			OS::get_singleton()->shell_open(String("file://") + EditorSettings::get_singleton()->get_settings_dir());
 		} break;
 		case SETTINGS_MANAGE_EXPORT_TEMPLATES: {
 
@@ -2746,6 +2756,8 @@ void EditorNode::set_current_scene(int p_idx) {
 
 	Dictionary state = editor_data.restore_edited_scene_state(editor_selection, &editor_history);
 	_edit_current();
+
+	_update_title();
 
 	call_deferred("_set_main_scene_state", state, get_edited_scene()); //do after everything else is done setting up
 }
@@ -5633,10 +5645,6 @@ EditorNode::EditorNode() {
 	add_editor_plugin(memnew(SkeletonEditorPlugin(this)));
 	add_editor_plugin(memnew(SkeletonIKEditorPlugin(this)));
 	add_editor_plugin(memnew(PhysicalBonePlugin(this)));
-
-	// FIXME: Disabled as (according to reduz) users were complaining that it gets in the way
-	// Waiting for PropertyEditor rewrite (planned for 3.1) to be refactored.
-	//add_editor_plugin(memnew(MaterialEditorPlugin(this)));
 
 	for (int i = 0; i < EditorPlugins::get_plugin_count(); i++)
 		add_editor_plugin(EditorPlugins::create(i, this));

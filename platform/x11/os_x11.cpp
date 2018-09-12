@@ -29,12 +29,12 @@
 /*************************************************************************/
 
 #include "os_x11.h"
+#include "core/os/dir_access.h"
+#include "core/print_string.h"
 #include "drivers/gles2/rasterizer_gles2.h"
 #include "drivers/gles3/rasterizer_gles3.h"
 #include "errno.h"
 #include "key_mapping_x11.h"
-#include "os/dir_access.h"
-#include "print_string.h"
 #include "servers/visual/visual_server_raster.h"
 #include "servers/visual/visual_server_wrap_mt.h"
 
@@ -581,6 +581,8 @@ Error OS_X11::initialize(const VideoMode &p_desired, int p_video_driver, int p_a
 		}
 	}
 
+	update_real_mouse_position();
+
 	return OK;
 }
 
@@ -1050,6 +1052,7 @@ Point2 OS_X11::get_window_position() const {
 
 void OS_X11::set_window_position(const Point2 &p_position) {
 	XMoveWindow(x11_display, x11_window, p_position.x, p_position.y);
+	update_real_mouse_position();
 }
 
 Size2 OS_X11::get_window_size() const {
@@ -1079,6 +1082,16 @@ Size2 OS_X11::get_real_window_size() const {
 }
 
 void OS_X11::set_window_size(const Size2 p_size) {
+
+	if (current_videomode.width == p_size.width && current_videomode.height == p_size.height)
+		return;
+
+	XWindowAttributes xwa;
+	XSync(x11_display, False);
+	XGetWindowAttributes(x11_display, x11_window, &xwa);
+	int old_w = xwa.width;
+	int old_h = xwa.height;
+
 	// If window resizable is disabled we need to update the attributes first
 	if (is_window_resizable() == false) {
 		XSizeHints *xsh;
@@ -1098,6 +1111,16 @@ void OS_X11::set_window_size(const Size2 p_size) {
 	// Update our videomode width and height
 	current_videomode.width = p_size.x;
 	current_videomode.height = p_size.y;
+
+	for (int timeout = 0; timeout < 50; ++timeout) {
+		XSync(x11_display, False);
+		XGetWindowAttributes(x11_display, x11_window, &xwa);
+
+		if (old_w != xwa.width || old_h != xwa.height)
+			break;
+
+		usleep(10000);
+	}
 }
 
 void OS_X11::set_window_fullscreen(bool p_enabled) {
@@ -2534,7 +2557,9 @@ void OS_X11::set_custom_mouse_cursor(const RES &p_cursor, CursorShape p_shape, c
 		}
 
 		ERR_FAIL_COND(!texture.is_valid());
+		ERR_FAIL_COND(p_hotspot.x < 0 || p_hotspot.y < 0);
 		ERR_FAIL_COND(texture_size.width > 256 || texture_size.height > 256);
+		ERR_FAIL_COND(p_hotspot.x > texture_size.width || p_hotspot.y > texture_size.height);
 
 		image = texture->get_data();
 
@@ -2968,6 +2993,25 @@ OS::LatinKeyboardVariant OS_X11::get_latin_keyboard_variant() const {
 	}
 
 	return LATIN_KEYBOARD_QWERTY;
+}
+
+void OS_X11::update_real_mouse_position() {
+	Window root_return, child_return;
+	int root_x, root_y, win_x, win_y;
+	unsigned int mask_return;
+
+	Bool xquerypointer_result = XQueryPointer(x11_display, x11_window, &root_return, &child_return, &root_x, &root_y,
+			&win_x, &win_y, &mask_return);
+
+	if (xquerypointer_result) {
+		if (win_x > 0 && win_y > 0 && win_x <= current_videomode.width && win_y <= current_videomode.height) {
+
+			last_mouse_pos.x = win_x;
+			last_mouse_pos.y = win_y;
+			last_mouse_pos_valid = true;
+			input->set_mouse_position(last_mouse_pos);
+		}
+	}
 }
 
 OS_X11::OS_X11() {

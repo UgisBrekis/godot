@@ -30,12 +30,12 @@
 
 #include "script_debugger_remote.h"
 
-#include "engine.h"
-#include "io/ip.h"
-#include "io/marshalls.h"
-#include "os/input.h"
-#include "os/os.h"
-#include "project_settings.h"
+#include "core/engine.h"
+#include "core/io/ip.h"
+#include "core/io/marshalls.h"
+#include "core/os/input.h"
+#include "core/os/os.h"
+#include "core/project_settings.h"
 #include "scene/main/node.h"
 #include "scene/resources/packed_scene.h"
 
@@ -661,7 +661,7 @@ void ScriptDebuggerRemote::_send_object_id(ObjectID p_id) {
 			prop.push_back(Variant());
 		} else {
 			prop.push_back(pi.hint);
-			if (res.is_null())
+			if (res.is_null() || res->get_path().empty())
 				prop.push_back(pi.hint_string);
 			else
 				prop.push_back(String("RES:") + res->get_path());
