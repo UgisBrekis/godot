@@ -744,12 +744,15 @@ void OS_X11::set_mouse_mode(MouseMode p_mode) {
 			ERR_PRINT("NO GRAB");
 		}
 
-		center.x = current_videomode.width / 2;
-		center.y = current_videomode.height / 2;
-		XWarpPointer(x11_display, None, x11_window,
-				0, 0, 0, 0, (int)center.x, (int)center.y);
+		if (mouse_mode == MOUSE_MODE_CAPTURED) {
+			center.x = current_videomode.width / 2;
+			center.y = current_videomode.height / 2;
 
-		input->set_mouse_position(center);
+			XWarpPointer(x11_display, None, x11_window,
+					0, 0, 0, 0, (int)center.x, (int)center.y);
+
+			input->set_mouse_position(center);
+		}
 	} else {
 		do_mouse_warp = false;
 	}
@@ -2067,6 +2070,10 @@ void OS_X11::process_xevents() {
 
 				Point2i rel = pos - last_mouse_pos;
 
+				if (mouse_mode == MOUSE_MODE_CAPTURED) {
+					pos = Point2i(current_videomode.width / 2, current_videomode.height / 2);
+				}
+
 				Ref<InputEventMouseMotion> mm;
 				mm.instance();
 
@@ -2517,13 +2524,16 @@ void OS_X11::set_cursor_shape(CursorShape p_shape) {
 
 	ERR_FAIL_INDEX(p_shape, CURSOR_MAX);
 
-	if (p_shape == current_cursor)
+	if (p_shape == current_cursor) {
 		return;
-	if (mouse_mode == MOUSE_MODE_VISIBLE && mouse_mode != MOUSE_MODE_CONFINED) {
-		if (cursors[p_shape] != None)
+	}
+
+	if (mouse_mode == MOUSE_MODE_VISIBLE || mouse_mode == MOUSE_MODE_CONFINED) {
+		if (cursors[p_shape] != None) {
 			XDefineCursor(x11_display, x11_window, cursors[p_shape]);
-		else if (cursors[CURSOR_ARROW] != None)
+		} else if (cursors[CURSOR_ARROW] != None) {
 			XDefineCursor(x11_display, x11_window, cursors[CURSOR_ARROW]);
+		}
 	}
 
 	current_cursor = p_shape;
@@ -2599,8 +2609,10 @@ void OS_X11::set_custom_mouse_cursor(const RES &p_cursor, CursorShape p_shape, c
 		// Save it for a further usage
 		cursors[p_shape] = XcursorImageLoadCursor(x11_display, cursor_image);
 
-		if (p_shape == CURSOR_ARROW) {
-			XDefineCursor(x11_display, x11_window, cursors[p_shape]);
+		if (p_shape == current_cursor) {
+			if (mouse_mode == MOUSE_MODE_VISIBLE || mouse_mode == MOUSE_MODE_CONFINED) {
+				XDefineCursor(x11_display, x11_window, cursors[p_shape]);
+			}
 		}
 
 		memfree(cursor_image->pixels);
@@ -2611,8 +2623,9 @@ void OS_X11::set_custom_mouse_cursor(const RES &p_cursor, CursorShape p_shape, c
 			cursors[p_shape] = XcursorImageLoadCursor(x11_display, img[p_shape]);
 		}
 
+		CursorShape c = current_cursor;
 		current_cursor = CURSOR_MAX;
-		set_cursor_shape(p_shape);
+		set_cursor_shape(c);
 	}
 }
 
