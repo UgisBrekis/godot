@@ -626,7 +626,7 @@ void EditorProperty::_gui_input(const Ref<InputEvent> &p_event) {
 		}
 
 		if (keying_rect.has_point(mb->get_position())) {
-			emit_signal("property_keyed", property);
+			emit_signal("property_keyed", property, use_keying_next());
 
 			if (use_keying_next()) {
 				call_deferred("emit_signal", "property_changed", property, object->get(property).operator int64_t() + 1);
@@ -1152,6 +1152,11 @@ void EditorInspectorSection::_gui_input(const Ref<InputEvent> &p_event) {
 #ifdef TOOLS_ENABLED
 	Ref<InputEventMouseButton> mb = p_event;
 	if (mb.is_valid() && mb->is_pressed() && mb->get_button_index() == BUTTON_LEFT) {
+
+		Ref<Font> font = get_font("font", "Tree");
+		if (mb->get_position().y > font->get_height()) { //clicked outside
+			return;
+		}
 
 		_test_unfold();
 
@@ -2030,20 +2035,20 @@ void EditorInspector::_multiple_properties_changed(Vector<String> p_paths, Array
 	changing--;
 }
 
-void EditorInspector::_property_keyed(const String &p_path) {
+void EditorInspector::_property_keyed(const String &p_path, bool p_advance) {
 
 	if (!object)
 		return;
 
-	emit_signal("property_keyed", p_path, object->get(p_path), true); //second param is deprecated
+	emit_signal("property_keyed", p_path, object->get(p_path), p_advance); //second param is deprecated
 }
 
-void EditorInspector::_property_keyed_with_value(const String &p_path, const Variant &p_value) {
+void EditorInspector::_property_keyed_with_value(const String &p_path, const Variant &p_value, bool p_advance) {
 
 	if (!object)
 		return;
 
-	emit_signal("property_keyed", p_path, p_value, false); //second param is deprecated
+	emit_signal("property_keyed", p_path, p_value, p_advance); //second param is deprecated
 }
 
 void EditorInspector::_property_checked(const String &p_path, bool p_checked) {
