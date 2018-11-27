@@ -999,6 +999,22 @@ void EditorNode::_save_scene_with_preview(String p_file, int p_idx) {
 	EditorResourcePreview::get_singleton()->check_for_invalidation(p_file);
 }
 
+bool EditorNode::_validate_scene_recursive(const String &p_filename, Node *p_node) {
+
+	for (int i = 0; i < p_node->get_child_count(); i++) {
+		Node *child = p_node->get_child(i);
+		if (child->get_filename() == p_filename) {
+			return true;
+		}
+
+		if (_validate_scene_recursive(p_filename, child)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void EditorNode::_save_scene(String p_file, int idx) {
 
 	Node *scene = editor_data.get_edited_scene_root(idx);
@@ -1006,6 +1022,11 @@ void EditorNode::_save_scene(String p_file, int idx) {
 	if (!scene) {
 
 		show_accept(TTR("This operation can't be done without a tree root."), TTR("OK"));
+		return;
+	}
+
+	if (scene->get_filename() != String() && _validate_scene_recursive(scene->get_filename(), scene)) {
+		show_accept(TTR("This scene can't be saved because there is a cyclic instancing inclusion.\nPlease resolve it and then attempt to save again."), TTR("OK"));
 		return;
 	}
 
