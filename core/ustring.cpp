@@ -58,6 +58,9 @@
 #define IS_DIGIT(m_d) ((m_d) >= '0' && (m_d) <= '9')
 #define IS_HEX_DIGIT(m_d) (((m_d) >= '0' && (m_d) <= '9') || ((m_d) >= 'a' && (m_d) <= 'f') || ((m_d) >= 'A' && (m_d) <= 'F'))
 
+const char CharString::_null = 0;
+const CharType String::_null = 0;
+
 bool is_symbol(CharType c) {
 	return c != '_' && ((c >= '!' && c <= '/') || (c >= ':' && c <= '@') || (c >= '[' && c <= '`') || (c >= '{' && c <= '~') || c == '\t' || c == ' ');
 }
@@ -3578,9 +3581,12 @@ bool String::is_valid_integer() const {
 
 bool String::is_valid_hex_number(bool p_with_prefix) const {
 
-	int from = 0;
 	int len = length();
 
+	if (len == 0)
+		return false;
+
+	int from = 0;
 	if (len != 1 && (operator[](0) == '+' || operator[](0) == '-'))
 		from++;
 
