@@ -4557,6 +4557,7 @@ void GDScriptParser::_parse_class(ClassNode *p_class) {
 				//variale declaration and (eventual) initialization
 
 				ClassNode::Member member;
+
 				bool autoexport = tokenizer->get_token(-1) == GDScriptTokenizer::TK_PR_EXPORT;
 				if (current_export.type != Variant::NIL) {
 					member._export = current_export;
@@ -5617,6 +5618,9 @@ GDScriptParser::DataType GDScriptParser::_type_from_gdtype(const GDScriptDataTyp
 	result.script_type = p_gdtype.script_type;
 
 	switch (p_gdtype.kind) {
+		case GDScriptDataType::UNINITIALIZED: {
+			ERR_EXPLAIN("Uninitialized datatype. Please report a bug.");
+		} break;
 		case GDScriptDataType::BUILTIN: {
 			result.kind = DataType::BUILTIN;
 		} break;
@@ -6818,7 +6822,7 @@ GDScriptParser::DataType GDScriptParser::_reduce_function_call_type(const Operat
 				return_type = original_type;
 				return_type.is_meta_type = false;
 
-				valid = true; // There's always an initializer, we can asume this is true
+				valid = true; // There's always an initializer, we can assume this is true
 			}
 
 			if (!valid) {
