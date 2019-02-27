@@ -301,10 +301,10 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 							args.push_back(d.id);
 							args.push_back("shell");
 							args.push_back("getprop");
-							int ec;
+							int ec2;
 							String dp;
 
-							OS::get_singleton()->execute(adb, args, true, NULL, &dp, &ec);
+							OS::get_singleton()->execute(adb, args, true, NULL, &dp, &ec2);
 
 							Vector<String> props = dp.split("\n");
 							String vendor;
@@ -1451,6 +1451,12 @@ public:
 
 			valid = false;
 			err += TTR("Invalid package name:") + " " + pn_err + "\n";
+		}
+
+		String etc_error = test_etc2();
+		if (etc_error != String()) {
+			valid = false;
+			err += etc_error;
 		}
 
 		r_error = err;

@@ -449,7 +449,7 @@ static String variant_type_to_managed_name(const String &p_var_type_name) {
 		Variant::_RID
 	};
 
-	for (int i = 0; i < sizeof(var_types) / sizeof(Variant::Type); i++) {
+	for (unsigned int i = 0; i < sizeof(var_types) / sizeof(Variant::Type); i++) {
 		if (p_var_type_name == Variant::get_type_name(var_types[i]))
 			return p_var_type_name;
 	}
@@ -719,13 +719,13 @@ void CSharpLanguage::reload_assemblies(bool p_soft_reload) {
 		// Script::instances are deleted during managed object disposal, which happens on domain finalize.
 		// Only placeholders are kept. Therefore we need to keep a copy before that happens.
 
-		for (Set<Object *>::Element *E = script->instances.front(); E; E = E->next()) {
-			script->pending_reload_instances.insert(E->get()->get_instance_id());
+		for (Set<Object *>::Element *F = script->instances.front(); F; F = F->next()) {
+			script->pending_reload_instances.insert(F->get()->get_instance_id());
 		}
 
 #ifdef TOOLS_ENABLED
-		for (Set<PlaceHolderScriptInstance *>::Element *E = script->placeholders.front(); E; E = E->next()) {
-			script->pending_reload_instances.insert(E->get()->get_owner()->get_instance_id());
+		for (Set<PlaceHolderScriptInstance *>::Element *F = script->placeholders.front(); F; F = F->next()) {
+			script->pending_reload_instances.insert(F->get()->get_owner()->get_instance_id());
 		}
 #endif
 
@@ -2172,7 +2172,7 @@ bool CSharpScript::_get_member_export(GDMonoClass *p_class, IMonoClassMember *p_
 				return false;
 			}
 
-			if (val != i) {
+			if (val != (unsigned int)i) {
 				uses_default_values = false;
 			}
 

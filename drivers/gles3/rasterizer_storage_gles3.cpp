@@ -3620,7 +3620,7 @@ void RasterizerStorageGLES3::mesh_add_surface(RID p_mesh, uint32_t p_format, VS:
 	}
 
 	mesh->surfaces.push_back(surface);
-	mesh->instance_change_notify(true, false);
+	mesh->instance_change_notify(true, true);
 
 	info.vertex_mem += surface->total_data_size;
 }
@@ -5522,6 +5522,7 @@ void RasterizerStorageGLES3::reflection_probe_set_as_interior(RID p_probe, bool 
 	ERR_FAIL_COND(!reflection_probe);
 
 	reflection_probe->interior = p_enable;
+	reflection_probe->instance_change_notify(true, false);
 }
 void RasterizerStorageGLES3::reflection_probe_set_enable_box_projection(RID p_probe, bool p_enable) {
 
@@ -6049,9 +6050,9 @@ void RasterizerStorageGLES3::particles_set_amount(RID p_particles, int p_amount)
 		glBindBuffer(GL_ARRAY_BUFFER, particles->particle_buffers[i]);
 		glBufferData(GL_ARRAY_BUFFER, floats * sizeof(float), data, GL_STATIC_DRAW);
 
-		for (int i = 0; i < 6; i++) {
-			glEnableVertexAttribArray(i);
-			glVertexAttribPointer(i, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4 * 6, ((uint8_t *)0) + (i * 16));
+		for (int j = 0; j < 6; j++) {
+			glEnableVertexAttribArray(j);
+			glVertexAttribPointer(j, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4 * 6, ((uint8_t *)0) + (j * 16));
 		}
 	}
 

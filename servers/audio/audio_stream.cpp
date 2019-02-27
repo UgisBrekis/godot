@@ -83,8 +83,8 @@ void AudioStreamPlaybackResampled::mix(AudioFrame *p_buffer, float p_rate_scale,
 				_mix_internal(internal_buffer + 4, INTERNAL_BUFFER_LEN);
 			} else {
 				//fill with silence, not playing
-				for (int i = 0; i < INTERNAL_BUFFER_LEN; ++i) {
-					internal_buffer[i + 4] = AudioFrame(0, 0);
+				for (int j = 0; j < INTERNAL_BUFFER_LEN; ++j) {
+					internal_buffer[j + 4] = AudioFrame(0, 0);
 				}
 			}
 			mix_offset -= (INTERNAL_BUFFER_LEN << FP_BITS);
@@ -138,7 +138,7 @@ void AudioStreamPlaybackMicrophone::_mix_internal(AudioFrame *p_buffer, int p_fr
 	Vector<int32_t> buf = AudioDriver::get_singleton()->get_input_buffer();
 	unsigned int input_size = AudioDriver::get_singleton()->get_input_size();
 	int mix_rate = AudioDriver::get_singleton()->get_mix_rate();
-	int playback_delay = MIN(((50 * mix_rate) / 1000) * 2, buf.size() >> 1);
+	unsigned int playback_delay = MIN(((50 * mix_rate) / 1000) * 2, buf.size() >> 1);
 #ifdef DEBUG_ENABLED
 	unsigned int input_position = AudioDriver::get_singleton()->get_input_position();
 #endif
@@ -152,11 +152,11 @@ void AudioStreamPlaybackMicrophone::_mix_internal(AudioFrame *p_buffer, int p_fr
 		for (int i = 0; i < p_frames; i++) {
 			if (input_size > input_ofs) {
 				float l = (buf[input_ofs++] >> 16) / 32768.f;
-				if (input_ofs >= buf.size()) {
+				if ((int)input_ofs >= buf.size()) {
 					input_ofs = 0;
 				}
 				float r = (buf[input_ofs++] >> 16) / 32768.f;
-				if (input_ofs >= buf.size()) {
+				if ((int)input_ofs >= buf.size()) {
 					input_ofs = 0;
 				}
 
@@ -168,7 +168,7 @@ void AudioStreamPlaybackMicrophone::_mix_internal(AudioFrame *p_buffer, int p_fr
 	}
 
 #ifdef DEBUG_ENABLED
-	if (input_ofs > input_position && (input_ofs - input_position) < (p_frames * 2)) {
+	if (input_ofs > input_position && (int)(input_ofs - input_position) < (p_frames * 2)) {
 		print_verbose(String(get_class_name()) + " buffer underrun: input_position=" + itos(input_position) + " input_ofs=" + itos(input_ofs) + " input_size=" + itos(input_size));
 	}
 #endif
