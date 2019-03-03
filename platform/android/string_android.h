@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  audio_driver_opensl.h                                                */
+/*  string_android.h                                                     */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,85 +28,31 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef AUDIO_DRIVER_OPENSL_H
-#define AUDIO_DRIVER_OPENSL_H
+#ifndef STRING_ANDROID_H
+#define STRING_ANDROID_H
+#include "core/ustring.h"
+#include "thread_jandroid.h"
+#include <jni.h>
 
-#include "core/os/mutex.h"
-#include "servers/audio_server.h"
+/**
+ * Converts JNI jstring to Godot String.
+ * @param source Source JNI string. If null an empty string is returned.
+ * @param env JNI environment instance. If null obtained by ThreadAndroid::get_env().
+ * @return Godot string instance.
+ */
+static inline String jstring_to_string(jstring source, JNIEnv *env = NULL) {
+	String result;
+	if (source) {
+		if (!env) {
+			env = ThreadAndroid::get_env();
+		}
+		const char *const source_utf8 = env->GetStringUTFChars(source, NULL);
+		if (source_utf8) {
+			result.parse_utf8(source_utf8);
+			env->ReleaseStringUTFChars(source, source_utf8);
+		}
+	}
+	return result;
+}
 
-#include <SLES/OpenSLES.h>
-#include <SLES/OpenSLES_Android.h>
-
-class AudioDriverOpenSL : public AudioDriver {
-
-	bool active;
-	Mutex *mutex;
-
-	enum {
-
-		BUFFER_COUNT = 2
-	};
-
-	bool pause;
-
-	uint32_t buffer_size;
-	int16_t *buffers[BUFFER_COUNT];
-	int32_t *mixdown_buffer;
-	int last_free;
-
-	Vector<int16_t> rec_buffer;
-
-	SLPlayItf playItf;
-	SLRecordItf recordItf;
-	SLObjectItf sl;
-	SLEngineItf EngineItf;
-	SLObjectItf OutputMix;
-	SLVolumeItf volumeItf;
-	SLObjectItf player;
-	SLObjectItf recorder;
-	SLAndroidSimpleBufferQueueItf bufferQueueItf;
-	SLAndroidSimpleBufferQueueItf recordBufferQueueItf;
-	SLDataSource audioSource;
-	SLDataFormat_PCM pcm;
-	SLDataSink audioSink;
-	SLDataLocator_OutputMix locator_outputmix;
-	SLBufferQueueState state;
-
-	static AudioDriverOpenSL *s_ad;
-
-	void _buffer_callback(
-			SLAndroidSimpleBufferQueueItf queueItf);
-
-	static void _buffer_callbacks(
-			SLAndroidSimpleBufferQueueItf queueItf,
-			void *pContext);
-
-	void _record_buffer_callback(
-			SLAndroidSimpleBufferQueueItf queueItf);
-
-	static void _record_buffer_callbacks(
-			SLAndroidSimpleBufferQueueItf queueItf,
-			void *pContext);
-
-public:
-	void set_singleton();
-
-	virtual const char *get_name() const;
-
-	virtual Error init();
-	virtual void start();
-	virtual int get_mix_rate() const;
-	virtual SpeakerMode get_speaker_mode() const;
-	virtual void lock();
-	virtual void unlock();
-	virtual void finish();
-
-	virtual void set_pause(bool p_pause);
-
-	virtual Error capture_start();
-	virtual Error capture_stop();
-
-	AudioDriverOpenSL();
-};
-
-#endif // AUDIO_DRIVER_ANDROID_H
+#endif // STRING_ANDROID_H
