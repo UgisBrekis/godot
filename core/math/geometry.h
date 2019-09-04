@@ -181,8 +181,8 @@ public:
 			}
 		}
 		// finally do the division to get sc and tc
-		sc = (Math::abs(sN) < CMP_EPSILON ? 0.0 : sN / sD);
-		tc = (Math::abs(tN) < CMP_EPSILON ? 0.0 : tN / tD);
+		sc = (Math::is_zero_approx(sN) ? 0.0 : sN / sD);
+		tc = (Math::is_zero_approx(tN) ? 0.0 : tN / tD);
 
 		// get the difference of the two closest points
 		Vector3 dP = w + (sc * u) - (tc * v); // = S1(sc) - S2(tc)
@@ -195,7 +195,7 @@ public:
 		Vector3 e2 = p_v2 - p_v0;
 		Vector3 h = p_dir.cross(e2);
 		real_t a = e1.dot(h);
-		if (a > -CMP_EPSILON && a < CMP_EPSILON) // parallel test
+		if (Math::is_zero_approx(a)) // parallel test
 			return false;
 
 		real_t f = 1.0 / a;
@@ -233,7 +233,7 @@ public:
 		Vector3 e2 = p_v2 - p_v0;
 		Vector3 h = rel.cross(e2);
 		real_t a = e1.dot(h);
-		if (a > -CMP_EPSILON && a < CMP_EPSILON) // parallel test
+		if (Math::is_zero_approx(a)) // parallel test
 			return false;
 
 		real_t f = 1.0 / a;
@@ -535,7 +535,7 @@ public:
 		// see http://paulbourke.net/geometry/pointlineplane/
 
 		const real_t denom = p_dir_b.y * p_dir_a.x - p_dir_b.x * p_dir_a.y;
-		if (Math::abs(denom) < CMP_EPSILON) { // parallel?
+		if (Math::is_zero_approx(denom)) { // parallel?
 			return false;
 		}
 
@@ -833,7 +833,7 @@ public:
 			further_away_opposite.y = MIN(p[i].y, further_away_opposite.y);
 		}
 
-		further_away += (further_away - further_away_opposite) * Vector2(1.221313, 1.512312); // make point outside that wont intersect with points in segment from p_point
+		further_away += (further_away - further_away_opposite) * Vector2(1.221313, 1.512312); // make point outside that won't intersect with points in segment from p_point
 
 		int intersections = 0;
 		for (int i = 0; i < c; i++) {

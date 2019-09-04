@@ -607,12 +607,12 @@ void VisualServerScene::instance_set_transform(RID p_instance, const Transform &
 	instance->transform = p_transform;
 	_instance_queue_update(instance, true);
 }
-void VisualServerScene::instance_attach_object_instance_id(RID p_instance, ObjectID p_ID) {
+void VisualServerScene::instance_attach_object_instance_id(RID p_instance, ObjectID p_id) {
 
 	Instance *instance = instance_owner.get(p_instance);
 	ERR_FAIL_COND(!instance);
 
-	instance->object_ID = p_ID;
+	instance->object_id = p_id;
 }
 void VisualServerScene::instance_set_blend_shape_weight(RID p_instance, int p_shape, float p_weight) {
 
@@ -791,10 +791,10 @@ Vector<ObjectID> VisualServerScene::instances_cull_aabb(const AABB &p_aabb, RID 
 
 		Instance *instance = cull[i];
 		ERR_CONTINUE(!instance);
-		if (instance->object_ID == 0)
+		if (instance->object_id == 0)
 			continue;
 
-		instances.push_back(instance->object_ID);
+		instances.push_back(instance->object_id);
 	}
 
 	return instances;
@@ -813,10 +813,10 @@ Vector<ObjectID> VisualServerScene::instances_cull_ray(const Vector3 &p_from, co
 	for (int i = 0; i < culled; i++) {
 		Instance *instance = cull[i];
 		ERR_CONTINUE(!instance);
-		if (instance->object_ID == 0)
+		if (instance->object_id == 0)
 			continue;
 
-		instances.push_back(instance->object_ID);
+		instances.push_back(instance->object_id);
 	}
 
 	return instances;
@@ -837,10 +837,10 @@ Vector<ObjectID> VisualServerScene::instances_cull_convex(const Vector<Plane> &p
 
 		Instance *instance = cull[i];
 		ERR_CONTINUE(!instance);
-		if (instance->object_ID == 0)
+		if (instance->object_id == 0)
 			continue;
 
-		instances.push_back(instance->object_ID);
+		instances.push_back(instance->object_id);
 	}
 
 	return instances;
@@ -2654,7 +2654,7 @@ void VisualServerScene::_bake_gi_probe_light(const GIProbeDataHeader *header, co
 
 			for (int i = 0; i < 3; i++) {
 
-				if (ABS(light_axis[i]) < CMP_EPSILON)
+				if (Math::is_zero_approx(light_axis[i]))
 					continue;
 				clip[clip_planes].normal[i] = 1.0;
 
@@ -2789,7 +2789,7 @@ void VisualServerScene::_bake_gi_probe_light(const GIProbeDataHeader *header, co
 
 				for (int c = 0; c < 3; c++) {
 
-					if (ABS(light_axis[c]) < CMP_EPSILON)
+					if (Math::is_zero_approx(light_axis[c]))
 						continue;
 					clip[clip_planes].normal[c] = 1.0;
 
@@ -3117,6 +3117,9 @@ bool VisualServerScene::_check_gi_probe(Instance *p_gi_probe) {
 
 	for (List<Instance *>::Element *E = p_gi_probe->scenario->directional_lights.front(); E; E = E->next()) {
 
+		if (!VSG::storage->light_get_use_gi(E->get()->base))
+			continue;
+
 		InstanceGIProbeData::LightCache lc;
 		lc.type = VSG::storage->light_get_type(E->get()->base);
 		lc.color = VSG::storage->light_get_color(E->get()->base);
@@ -3136,6 +3139,9 @@ bool VisualServerScene::_check_gi_probe(Instance *p_gi_probe) {
 	}
 
 	for (Set<Instance *>::Element *E = probe_data->lights.front(); E; E = E->next()) {
+
+		if (!VSG::storage->light_get_use_gi(E->get()->base))
+			continue;
 
 		InstanceGIProbeData::LightCache lc;
 		lc.type = VSG::storage->light_get_type(E->get()->base);

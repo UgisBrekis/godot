@@ -1602,6 +1602,8 @@ void SceneTreeDock::_script_created(Ref<Script> p_script) {
 		Ref<Script> existing = E->get()->get_script();
 		editor_data->get_undo_redo().add_do_method(E->get(), "set_script", p_script.get_ref_ptr());
 		editor_data->get_undo_redo().add_undo_method(E->get(), "set_script", existing);
+		editor_data->get_undo_redo().add_do_method(this, "_update_script_button");
+		editor_data->get_undo_redo().add_undo_method(this, "_update_script_button");
 	}
 
 	editor_data->get_undo_redo().commit_action();
@@ -2625,6 +2627,7 @@ SceneTreeDock::SceneTreeDock(EditorNode *p_editor, Node *p_scene_root, EditorSel
 	add_child(rename_dialog);
 
 	script_create_dialog = memnew(ScriptCreateDialog);
+	script_create_dialog->set_inheritance_base_type("Node");
 	add_child(script_create_dialog);
 	script_create_dialog->connect("script_created", this, "_script_created");
 
