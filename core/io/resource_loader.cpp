@@ -207,8 +207,6 @@ RES ResourceFormatLoader::load(const String &p_path, const String &p_original_pa
 
 		ERR_FAIL_COND_V(err != OK, RES());
 	}
-
-	return RES();
 }
 
 void ResourceFormatLoader::get_dependencies(const String &p_path, List<String> *p_dependencies, bool p_add_types) {
@@ -277,13 +275,9 @@ RES ResourceLoader::_load(const String &p_path, const String &p_original_path, c
 		return res;
 	}
 
-	if (found) {
-		ERR_EXPLAIN("Failed loading resource: " + p_path);
-	} else {
-		ERR_EXPLAIN("No loader found for resource: " + p_path);
-	}
-	ERR_FAIL_V(RES());
-	return RES();
+	ERR_FAIL_COND_V_MSG(found, RES(), "Failed loading resource: " + p_path + ".");
+
+	ERR_FAIL_V_MSG(RES(), "No loader found for resource: " + p_path + ".");
 }
 
 bool ResourceLoader::_add_to_loading_map(const String &p_path) {
@@ -358,10 +352,7 @@ RES ResourceLoader::load(const String &p_path, const String &p_type_hint, bool p
 
 		{
 			bool success = _add_to_loading_map(local_path);
-			if (!success) {
-				ERR_EXPLAIN("Resource: '" + local_path + "' is already being loaded. Cyclic reference?");
-				ERR_FAIL_V(RES());
-			}
+			ERR_FAIL_COND_V_MSG(!success, RES(), "Resource: '" + local_path + "' is already being loaded. Cyclic reference?");
 		}
 
 		//lock first if possible
@@ -398,8 +389,7 @@ RES ResourceLoader::load(const String &p_path, const String &p_type_hint, bool p
 		if (!p_no_cache) {
 			_remove_from_loading_map(local_path);
 		}
-		ERR_EXPLAIN("Remapping '" + local_path + "'failed.");
-		ERR_FAIL_V(RES());
+		ERR_FAIL_V_MSG(RES(), "Remapping '" + local_path + "' failed.");
 	}
 
 	print_verbose("Loading resource: " + path);
@@ -482,10 +472,7 @@ Ref<ResourceInteractiveLoader> ResourceLoader::load_interactive(const String &p_
 	if (!p_no_cache) {
 
 		bool success = _add_to_loading_map(local_path);
-		if (!success) {
-			ERR_EXPLAIN("Resource: '" + local_path + "' is already being loaded. Cyclic reference?");
-			ERR_FAIL_V(RES());
-		}
+		ERR_FAIL_COND_V_MSG(!success, RES(), "Resource: '" + local_path + "' is already being loaded. Cyclic reference?");
 
 		if (ResourceCache::has(local_path)) {
 
@@ -506,8 +493,7 @@ Ref<ResourceInteractiveLoader> ResourceLoader::load_interactive(const String &p_
 		if (!p_no_cache) {
 			_remove_from_loading_map(local_path);
 		}
-		ERR_EXPLAIN("Remapping '" + local_path + "'failed.");
-		ERR_FAIL_V(RES());
+		ERR_FAIL_V_MSG(RES(), "Remapping '" + local_path + "' failed.");
 	}
 
 	print_verbose("Loading resource: " + path);
@@ -537,13 +523,9 @@ Ref<ResourceInteractiveLoader> ResourceLoader::load_interactive(const String &p_
 		_remove_from_loading_map(local_path);
 	}
 
-	if (found) {
-		ERR_EXPLAIN("Failed loading resource: " + path);
-	} else {
-		ERR_EXPLAIN("No loader found for resource: " + path);
-	}
-	ERR_FAIL_V(Ref<ResourceInteractiveLoader>());
-	return Ref<ResourceInteractiveLoader>();
+	ERR_FAIL_COND_V_MSG(found, Ref<ResourceInteractiveLoader>(), "Failed loading resource: " + path + ".");
+
+	ERR_FAIL_V_MSG(Ref<ResourceInteractiveLoader>(), "No loader found for resource: " + path + ".");
 }
 
 void ResourceLoader::add_resource_format_loader(Ref<ResourceFormatLoader> p_format_loader, bool p_at_front) {
@@ -805,7 +787,7 @@ String ResourceLoader::_path_remap(const String &p_path, bool *r_translation_rem
 				if (err == ERR_FILE_EOF) {
 					break;
 				} else if (err != OK) {
-					ERR_PRINTS("Parse error: " + p_path + ".remap:" + itos(lines) + " error: " + error_text);
+					ERR_PRINTS("Parse error: " + p_path + ".remap:" + itos(lines) + " error: " + error_text + ".");
 					break;
 				}
 
@@ -936,16 +918,13 @@ bool ResourceLoader::add_custom_resource_format_loader(String script_path) {
 	Ref<Script> s = res;
 	StringName ibt = s->get_instance_base_type();
 	bool valid_type = ClassDB::is_parent_class(ibt, "ResourceFormatLoader");
-	ERR_EXPLAIN("Script does not inherit a CustomResourceLoader: " + script_path);
-	ERR_FAIL_COND_V(!valid_type, false);
+	ERR_FAIL_COND_V_MSG(!valid_type, false, "Script does not inherit a CustomResourceLoader: " + script_path + ".");
 
 	Object *obj = ClassDB::instance(ibt);
 
-	ERR_EXPLAIN("Cannot instance script as custom resource loader, expected 'ResourceFormatLoader' inheritance, got: " + String(ibt));
-	ERR_FAIL_COND_V(obj == NULL, false);
+	ERR_FAIL_COND_V_MSG(obj == NULL, false, "Cannot instance script as custom resource loader, expected 'ResourceFormatLoader' inheritance, got: " + String(ibt) + ".");
 
-	ResourceFormatLoader *crl = NULL;
-	crl = Object::cast_to<ResourceFormatLoader>(obj);
+	ResourceFormatLoader *crl = Object::cast_to<ResourceFormatLoader>(obj);
 	crl->set_script(s.get_ref_ptr());
 	ResourceLoader::add_resource_format_loader(crl);
 

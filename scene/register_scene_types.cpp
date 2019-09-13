@@ -48,6 +48,7 @@
 #include "scene/2d/light_occluder_2d.h"
 #include "scene/2d/line_2d.h"
 #include "scene/2d/mesh_instance_2d.h"
+#include "scene/2d/multimesh_instance_2d.h"
 #include "scene/2d/navigation_2d.h"
 #include "scene/2d/parallax_background.h"
 #include "scene/2d/parallax_layer.h"
@@ -100,6 +101,7 @@
 #include "scene/gui/popup_menu.h"
 #include "scene/gui/progress_bar.h"
 #include "scene/gui/reference_rect.h"
+#include "scene/gui/rich_text_effect.h"
 #include "scene/gui/rich_text_label.h"
 #include "scene/gui/scroll_bar.h"
 #include "scene/gui/scroll_container.h"
@@ -144,7 +146,6 @@
 #include "scene/resources/material.h"
 #include "scene/resources/mesh.h"
 #include "scene/resources/mesh_data_tool.h"
-#include "scene/resources/mesh_library.h"
 #include "scene/resources/packed_scene.h"
 #include "scene/resources/particles_material.h"
 #include "scene/resources/physics_material.h"
@@ -209,6 +210,7 @@
 #include "scene/3d/visibility_notifier.h"
 #include "scene/animation/skeleton_ik.h"
 #include "scene/resources/environment.h"
+#include "scene/resources/mesh_library.h"
 #endif
 
 static Ref<ResourceFormatSaverText> resource_saver_text;
@@ -303,6 +305,7 @@ void register_scene_types() {
 	ClassDB::register_class<TextureRect>();
 	ClassDB::register_class<ColorRect>();
 	ClassDB::register_class<NinePatchRect>();
+	ClassDB::register_class<ReferenceRect>();
 	ClassDB::register_class<TabContainer>();
 	ClassDB::register_class<Tabs>();
 	ClassDB::register_virtual_class<Separator>();
@@ -338,10 +341,11 @@ void register_scene_types() {
 	ClassDB::register_virtual_class<TreeItem>();
 	ClassDB::register_class<OptionButton>();
 	ClassDB::register_class<SpinBox>();
-	ClassDB::register_class<ReferenceRect>();
 	ClassDB::register_class<ColorPicker>();
 	ClassDB::register_class<ColorPickerButton>();
 	ClassDB::register_class<RichTextLabel>();
+	ClassDB::register_class<RichTextEffect>();
+	ClassDB::register_class<CharFXTransform>();
 	ClassDB::register_class<PopupDialog>();
 	ClassDB::register_class<WindowDialog>();
 	ClassDB::register_class<AcceptDialog>();
@@ -468,14 +472,16 @@ void register_scene_types() {
 	OS::get_singleton()->yield(); //may take time to init
 
 #endif
-	ClassDB::register_class<MeshLibrary>();
+
 	AcceptDialog::set_swap_ok_cancel(GLOBAL_DEF("gui/common/swap_ok_cancel", bool(OS::get_singleton()->get_swap_ok_cancel())));
 
 	ClassDB::register_class<Shader>();
 	ClassDB::register_class<VisualShader>();
 	ClassDB::register_virtual_class<VisualShaderNode>();
+	ClassDB::register_class<VisualShaderNodeCustom>();
 	ClassDB::register_class<VisualShaderNodeInput>();
 	ClassDB::register_virtual_class<VisualShaderNodeOutput>();
+	ClassDB::register_class<VisualShaderNodeGroupBase>();
 	ClassDB::register_class<VisualShaderNodeScalarConstant>();
 	ClassDB::register_class<VisualShaderNodeBooleanConstant>();
 	ClassDB::register_class<VisualShaderNodeColorConstant>();
@@ -507,6 +513,7 @@ void register_scene_types() {
 	ClassDB::register_class<VisualShaderNodeVectorRefract>();
 	ClassDB::register_class<VisualShaderNodeScalarInterp>();
 	ClassDB::register_class<VisualShaderNodeVectorInterp>();
+	ClassDB::register_class<VisualShaderNodeVectorScalarMix>();
 	ClassDB::register_class<VisualShaderNodeVectorCompose>();
 	ClassDB::register_class<VisualShaderNodeTransformCompose>();
 	ClassDB::register_class<VisualShaderNodeVectorDecompose>();
@@ -520,10 +527,16 @@ void register_scene_types() {
 	ClassDB::register_class<VisualShaderNodeVec3Uniform>();
 	ClassDB::register_class<VisualShaderNodeTransformUniform>();
 	ClassDB::register_class<VisualShaderNodeTextureUniform>();
+	ClassDB::register_class<VisualShaderNodeTextureUniformTriplanar>();
 	ClassDB::register_class<VisualShaderNodeCubeMapUniform>();
 	ClassDB::register_class<VisualShaderNodeIf>();
 	ClassDB::register_class<VisualShaderNodeSwitch>();
+	ClassDB::register_class<VisualShaderNodeScalarSwitch>();
 	ClassDB::register_class<VisualShaderNodeFresnel>();
+	ClassDB::register_class<VisualShaderNodeExpression>();
+	ClassDB::register_class<VisualShaderNodeGlobalExpression>();
+	ClassDB::register_class<VisualShaderNodeIs>();
+	ClassDB::register_class<VisualShaderNodeCompare>();
 
 	ClassDB::register_class<ShaderMaterial>();
 	ClassDB::register_virtual_class<CanvasItem>();
@@ -541,6 +554,7 @@ void register_scene_types() {
 	ClassDB::register_class<Position2D>();
 	ClassDB::register_class<Line2D>();
 	ClassDB::register_class<MeshInstance2D>();
+	ClassDB::register_class<MultiMeshInstance2D>();
 	ClassDB::register_virtual_class<CollisionObject2D>();
 	ClassDB::register_virtual_class<PhysicsBody2D>();
 	ClassDB::register_class<StaticBody2D>();
@@ -585,9 +599,13 @@ void register_scene_types() {
 	SceneTree::add_idle_callback(ParticlesMaterial::flush_changes);
 	ParticlesMaterial::init_shaders();
 
-#ifndef _3D_DISABLED
 	ClassDB::register_virtual_class<Mesh>();
 	ClassDB::register_class<ArrayMesh>();
+	ClassDB::register_class<MultiMesh>();
+	ClassDB::register_class<SurfaceTool>();
+	ClassDB::register_class<MeshDataTool>();
+
+#ifndef _3D_DISABLED
 	ClassDB::register_virtual_class<PrimitiveMesh>();
 	ClassDB::register_class<CapsuleMesh>();
 	ClassDB::register_class<CubeMesh>();
@@ -596,12 +614,12 @@ void register_scene_types() {
 	ClassDB::register_class<PrismMesh>();
 	ClassDB::register_class<QuadMesh>();
 	ClassDB::register_class<SphereMesh>();
+	ClassDB::register_class<PointMesh>();
 	ClassDB::register_virtual_class<Material>();
 	ClassDB::register_class<SpatialMaterial>();
 	SceneTree::add_idle_callback(SpatialMaterial::flush_changes);
 	SpatialMaterial::init_shaders();
 
-	ClassDB::register_class<MultiMesh>();
 	ClassDB::register_class<MeshLibrary>();
 
 	OS::get_singleton()->yield(); //may take time to init
@@ -616,9 +634,6 @@ void register_scene_types() {
 	ClassDB::register_class<PlaneShape>();
 	ClassDB::register_class<ConvexPolygonShape>();
 	ClassDB::register_class<ConcavePolygonShape>();
-
-	ClassDB::register_class<SurfaceTool>();
-	ClassDB::register_class<MeshDataTool>();
 
 	OS::get_singleton()->yield(); //may take time to init
 
@@ -642,6 +657,7 @@ void register_scene_types() {
 	ClassDB::register_class<GradientTexture>();
 	ClassDB::register_class<ProxyTexture>();
 	ClassDB::register_class<AnimatedTexture>();
+	ClassDB::register_class<CameraTexture>();
 	ClassDB::register_class<CubeMap>();
 	ClassDB::register_virtual_class<TextureLayered>();
 	ClassDB::register_class<Texture3D>();
@@ -743,7 +759,7 @@ void register_scene_types() {
 	if (theme_path != String()) {
 		Ref<Theme> theme = ResourceLoader::load(theme_path);
 		if (theme.is_valid()) {
-			Theme::set_default(theme);
+			Theme::set_project_default(theme);
 			if (font.is_valid()) {
 				Theme::set_default_font(font);
 			}

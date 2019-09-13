@@ -266,6 +266,7 @@ void BodySW::set_mode(PhysicsServer::BodyMode p_mode) {
 
 			_inv_mass = mass > 0 ? (1.0 / mass) : 0;
 			_set_static(false);
+			angular_velocity = Vector3();
 		} break;
 	}
 
@@ -346,8 +347,7 @@ void BodySW::set_state(PhysicsServer::BodyState p_state, const Variant &p_varian
 				//biased_angular_velocity=Vector3();
 				set_active(false);
 			} else {
-				if (mode != PhysicsServer::BODY_MODE_STATIC)
-					set_active(true);
+				set_active(true);
 			}
 		} break;
 		case PhysicsServer::BODY_STATE_CAN_SLEEP: {

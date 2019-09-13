@@ -53,8 +53,7 @@ public:
 
 		file = FileAccess::open(p_file, FileAccess::READ);
 
-		ERR_EXPLAIN("Failed loading resource: '" + p_file + "';");
-		ERR_FAIL_COND(!file);
+		ERR_FAIL_COND_MSG(!file, "Failed loading resource: '" + p_file + "'.");
 	}
 	~MkvReader() {
 
@@ -413,10 +412,11 @@ void VideoStreamPlaybackWebm::delete_pointers() {
 
 	if (audio_frame)
 		memdelete(audio_frame);
-	for (int i = 0; i < video_frames_capacity; ++i)
-		memdelete(video_frames[i]);
-	if (video_frames)
+	if (video_frames) {
+		for (int i = 0; i < video_frames_capacity; ++i)
+			memdelete(video_frames[i]);
 		memfree(video_frames);
+	}
 
 	if (video)
 		memdelete(video);

@@ -92,7 +92,6 @@ void Navigation2D::_navpoly_link(int p_id) {
 		if (!valid) {
 			nm.polygons.pop_back();
 			ERR_CONTINUE(!valid);
-			continue;
 		}
 
 		p.center = center / plen;
@@ -552,7 +551,7 @@ Vector<Vector2> Navigation2D::get_simple_path(const Vector2 &p_start, const Vect
 						left_poly = p;
 						portal_left = apex_point;
 						portal_right = apex_point;
-						if (!path.size() || !Math::is_zero_approx(path[path.size() - 1].distance_to(apex_point)))
+						if (!path.size() || path[path.size() - 1] != apex_point)
 							path.push_back(apex_point);
 						skip = true;
 					}
@@ -570,7 +569,7 @@ Vector<Vector2> Navigation2D::get_simple_path(const Vector2 &p_start, const Vect
 						right_poly = p;
 						portal_right = apex_point;
 						portal_left = apex_point;
-						if (!path.size() || !Math::is_zero_approx(path[path.size() - 1].distance_to(apex_point)))
+						if (!path.size() || path[path.size() - 1] != apex_point)
 							path.push_back(apex_point);
 					}
 				}

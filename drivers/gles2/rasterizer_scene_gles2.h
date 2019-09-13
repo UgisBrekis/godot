@@ -198,13 +198,14 @@ public:
 		int directional_light_count;
 		int reflection_probe_count;
 
-		bool cull_front;
-		bool cull_disabled;
 		bool used_sss;
 		bool using_contact_shadows;
 
 		VS::ViewportDebugDraw debug_draw;
 		*/
+
+		bool cull_front;
+		bool cull_disabled;
 
 		bool used_screen_texture;
 		bool shadow_is_dual_parabolloid;
@@ -353,6 +354,8 @@ public:
 		float bg_energy;
 		float sky_ambient;
 
+		int camera_feed_id;
+
 		Color ambient_color;
 		float ambient_energy;
 		float ambient_sky_contribution;
@@ -380,6 +383,7 @@ public:
 				sky_custom_fov(0.0),
 				bg_energy(1.0),
 				sky_ambient(0),
+				camera_feed_id(0),
 				ambient_energy(1.0),
 				ambient_sky_contribution(0.0),
 				canvas_max_layer(0),
@@ -394,8 +398,8 @@ public:
 				fog_transmit_enabled(true),
 				fog_transmit_curve(1),
 				fog_height_enabled(false),
-				fog_height_min(0),
-				fog_height_max(100),
+				fog_height_min(10),
+				fog_height_max(0),
 				fog_height_curve(1) {
 		}
 	};
@@ -412,6 +416,7 @@ public:
 	virtual void environment_set_bg_energy(RID p_env, float p_energy);
 	virtual void environment_set_canvas_max_layer(RID p_env, int p_max_layer);
 	virtual void environment_set_ambient_light(RID p_env, const Color &p_color, float p_energy = 1.0, float p_sky_contribution = 0.0);
+	virtual void environment_set_camera_feed_id(RID p_env, int p_camera_feed_id);
 
 	virtual void environment_set_dof_blur_near(RID p_env, bool p_enable, float p_distance, float p_transition, float p_amount, VS::EnvironmentDOFBlurQuality p_quality);
 	virtual void environment_set_dof_blur_far(RID p_env, bool p_enable, float p_distance, float p_transition, float p_amount, VS::EnvironmentDOFBlurQuality p_quality);
@@ -503,8 +508,7 @@ public:
 		enum {
 			MAX_LIGHTS = 255,
 			MAX_REFLECTION_PROBES = 255,
-			DEFAULT_MAX_ELEMENTS = 65536,
-			SORT_KEY_PRIORITY_SHIFT = 56
+			DEFAULT_MAX_ELEMENTS = 65536
 		};
 
 		int max_elements;
@@ -518,6 +522,7 @@ public:
 
 			bool use_accum; //is this an add pass for multipass
 			bool *use_accum_ptr;
+			bool front_facing;
 
 			union {
 				//TODO: should be endian swapped on big endian
@@ -603,12 +608,10 @@ public:
 		struct SortByReverseDepthAndPriority {
 
 			_FORCE_INLINE_ bool operator()(const Element *A, const Element *B) const {
-				uint32_t layer_A = uint32_t(A->sort_key >> SORT_KEY_PRIORITY_SHIFT);
-				uint32_t layer_B = uint32_t(B->sort_key >> SORT_KEY_PRIORITY_SHIFT);
-				if (layer_A == layer_B) {
+				if (A->priority == B->priority) {
 					return A->instance->depth > B->instance->depth;
 				} else {
-					return layer_A < layer_B;
+					return A->priority < B->priority;
 				}
 			}
 		};
@@ -687,10 +690,11 @@ public:
 
 	void _draw_sky(RasterizerStorageGLES2::Sky *p_sky, const CameraMatrix &p_projection, const Transform &p_transform, bool p_vflip, float p_custom_fov, float p_energy, const Basis &p_sky_orientation);
 
-	_FORCE_INLINE_ bool _setup_material(RasterizerStorageGLES2::Material *p_material, bool p_reverse_cull, bool p_alpha_pass, Size2i p_skeleton_tex_size = Size2i(0, 0));
+	_FORCE_INLINE_ void _set_cull(bool p_front, bool p_disabled, bool p_reverse_cull);
+	_FORCE_INLINE_ bool _setup_material(RasterizerStorageGLES2::Material *p_material, bool p_alpha_pass, Size2i p_skeleton_tex_size = Size2i(0, 0));
 	_FORCE_INLINE_ void _setup_geometry(RenderList::Element *p_element, RasterizerStorageGLES2::Skeleton *p_skeleton);
 	_FORCE_INLINE_ void _setup_light_type(LightInstance *p_light, ShadowAtlas *shadow_atlas);
-	_FORCE_INLINE_ void _setup_light(LightInstance *p_light, ShadowAtlas *shadow_atlas, const Transform &p_view_transform);
+	_FORCE_INLINE_ void _setup_light(LightInstance *p_light, ShadowAtlas *shadow_atlas, const Transform &p_view_transform, bool accum_pass);
 	_FORCE_INLINE_ void _setup_refprobes(ReflectionProbeInstance *p_refprobe1, ReflectionProbeInstance *p_refprobe2, const Transform &p_view_transform, Environment *p_env);
 	_FORCE_INLINE_ void _render_geometry(RenderList::Element *p_element);
 

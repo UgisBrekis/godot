@@ -350,6 +350,7 @@ public:
 	virtual uint32_t texture_get_height(RID p_texture) const;
 	virtual uint32_t texture_get_depth(RID p_texture) const;
 	virtual void texture_set_size_override(RID p_texture, int p_width, int p_height, int p_depth);
+	virtual void texture_bind(RID p_texture, uint32_t p_texture_no);
 
 	virtual void texture_set_path(RID p_texture, const String &p_path);
 	virtual String texture_get_path(RID p_texture) const;
@@ -1175,7 +1176,7 @@ public:
 			}
 		} external;
 
-		int width, height;
+		int x, y, width, height;
 
 		bool flags[RENDER_TARGET_FLAG_MAX];
 
@@ -1192,6 +1193,8 @@ public:
 				multisample_color(0),
 				multisample_depth(0),
 				multisample_active(false),
+				x(0),
+				y(0),
 				width(0),
 				height(0),
 				used_in_frame(false),
@@ -1209,6 +1212,7 @@ public:
 	void _render_target_allocate(RenderTarget *rt);
 
 	virtual RID render_target_create();
+	virtual void render_target_set_position(RID p_render_target, int p_x, int p_y);
 	virtual void render_target_set_size(RID p_render_target, int p_width, int p_height);
 	virtual RID render_target_get_texture(RID p_render_target) const;
 	virtual void render_target_set_external_texture(RID p_render_target, unsigned int p_texture_id);

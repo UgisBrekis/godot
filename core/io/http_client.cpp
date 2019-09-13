@@ -346,6 +346,12 @@ Error HTTPClient::poll() {
 						} else {
 							// We are already handshaking, which means we can use your already active SSL connection
 							ssl = static_cast<Ref<StreamPeerSSL> >(connection);
+							if (ssl.is_null()) {
+								close();
+								status = STATUS_SSL_HANDSHAKE_ERROR;
+								return ERR_CANT_CONNECT;
+							}
+
 							ssl->poll(); // Try to finish the handshake
 						}
 
@@ -476,8 +482,6 @@ Error HTTPClient::poll() {
 					return OK;
 				}
 			}
-			// Wait for response
-			return OK;
 		} break;
 		case STATUS_DISCONNECTED: {
 			return ERR_UNCONFIGURED;
@@ -769,7 +773,7 @@ Dictionary HTTPClient::_get_response_headers_as_dictionary() {
 	get_response_headers(&rh);
 	Dictionary ret;
 	for (const List<String>::Element *E = rh.front(); E; E = E->next()) {
-		String s = E->get();
+		const String &s = E->get();
 		int sp = s.find(":");
 		if (sp == -1)
 			continue;

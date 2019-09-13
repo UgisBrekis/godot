@@ -65,13 +65,11 @@ void ViewportTexture::setup_local_to_scene() {
 	}
 
 	Node *vpn = local_scene->get_node(path);
-	ERR_EXPLAIN("ViewportTexture: Path to node is invalid");
-	ERR_FAIL_COND(!vpn);
+	ERR_FAIL_COND_MSG(!vpn, "ViewportTexture: Path to node is invalid.");
 
 	vp = Object::cast_to<Viewport>(vpn);
 
-	ERR_EXPLAIN("ViewportTexture: Path to node does not point to a viewport");
-	ERR_FAIL_COND(!vp);
+	ERR_FAIL_COND_MSG(!vp, "ViewportTexture: Path to node does not point to a viewport.");
 
 	vp->viewport_textures.insert(this);
 
@@ -172,14 +170,16 @@ ViewportTexture::~ViewportTexture() {
 
 class TooltipPanel : public PanelContainer {
 
-	GDCLASS(TooltipPanel, PanelContainer)
+	GDCLASS(TooltipPanel, PanelContainer);
+
 public:
 	TooltipPanel(){};
 };
 
 class TooltipLabel : public Label {
 
-	GDCLASS(TooltipLabel, Label)
+	GDCLASS(TooltipLabel, Label);
+
 public:
 	TooltipLabel(){};
 };
@@ -530,7 +530,7 @@ void Viewport::_notification(int p_what) {
 											Map<ObjectID, uint64_t>::Element *F = physics_2d_mouseover.find(res[i].collider_id);
 
 											if (!F) {
-												F = physics_2d_mouseover.insert(res[i].collider_id, frame);
+												physics_2d_mouseover.insert(res[i].collider_id, frame);
 												co->_mouse_enter();
 											} else {
 												F->get() = frame;
@@ -579,7 +579,7 @@ void Viewport::_notification(int p_what) {
 					if (physics_object_capture != 0) {
 
 						CollisionObject *co = Object::cast_to<CollisionObject>(ObjectDB::get_instance(physics_object_capture));
-						if (co) {
+						if (co && camera) {
 							_collision_object_input_event(co, camera, ev, Vector3(), Vector3(), 0);
 							captured = true;
 							if (mb.is_valid() && mb->get_button_index() == 1 && !mb->is_pressed()) {
@@ -886,7 +886,7 @@ void Viewport::_camera_set(Camera *p_camera) {
 	if (camera == p_camera)
 		return;
 
-	if (camera && find_world().is_valid()) {
+	if (camera) {
 		camera->notification(Camera::NOTIFICATION_LOST_CURRENT);
 	}
 	camera = p_camera;
@@ -895,7 +895,7 @@ void Viewport::_camera_set(Camera *p_camera) {
 	else
 		VisualServer::get_singleton()->viewport_attach_camera(viewport, RID());
 
-	if (camera && find_world().is_valid()) {
+	if (camera) {
 		camera->notification(Camera::NOTIFICATION_BECAME_CURRENT);
 	}
 
@@ -914,9 +914,7 @@ void Viewport::_camera_remove(Camera *p_camera) {
 
 	cameras.erase(p_camera);
 	if (camera == p_camera) {
-		if (camera && find_world().is_valid()) {
-			camera->notification(Camera::NOTIFICATION_LOST_CURRENT);
-		}
+		camera->notification(Camera::NOTIFICATION_LOST_CURRENT);
 		camera = NULL;
 	}
 }
@@ -1013,7 +1011,7 @@ void Viewport::_propagate_enter_world(Node *p_node) {
 			Viewport *v = Object::cast_to<Viewport>(p_node);
 			if (v) {
 
-				if (v->world.is_valid())
+				if (v->world.is_valid() || v->own_world.is_valid())
 					return;
 			}
 		}
@@ -1050,7 +1048,7 @@ void Viewport::_propagate_exit_world(Node *p_node) {
 			Viewport *v = Object::cast_to<Viewport>(p_node);
 			if (v) {
 
-				if (v->world.is_valid())
+				if (v->world.is_valid() || v->own_world.is_valid())
 					return;
 			}
 		}
@@ -1070,22 +1068,10 @@ void Viewport::set_world(const Ref<World> &p_world) {
 	if (is_inside_tree())
 		_propagate_exit_world(this);
 
-#ifndef _3D_DISABLED
-	if (find_world().is_valid() && camera)
-		camera->notification(Camera::NOTIFICATION_LOST_CURRENT);
-#endif
-
 	world = p_world;
 
 	if (is_inside_tree())
 		_propagate_enter_world(this);
-
-#ifndef _3D_DISABLED
-	if (find_world().is_valid() && camera)
-		camera->notification(Camera::NOTIFICATION_BECAME_CURRENT);
-#endif
-
-	//propagate exit
 
 	if (is_inside_tree()) {
 		VisualServer::get_singleton()->viewport_set_scenario(viewport, find_world()->get_scenario());
@@ -1443,6 +1429,7 @@ void Viewport::_gui_show_tooltip() {
 
 	Control *which = NULL;
 	String tooltip = _gui_get_tooltip(gui.tooltip, gui.tooltip->get_global_transform().xform_inv(gui.tooltip_pos), &which);
+	tooltip = tooltip.strip_edges();
 	if (tooltip.length() == 0)
 		return; // bye
 
@@ -1456,9 +1443,7 @@ void Viewport::_gui_show_tooltip() {
 		return;
 	}
 
-	Control *rp = which; //->get_root_parent_control();
-	if (!rp)
-		return;
+	Control *rp = which;
 
 	gui.tooltip_popup = which->make_custom_tooltip(tooltip);
 
@@ -1474,7 +1459,7 @@ void Viewport::_gui_show_tooltip() {
 		gui.tooltip_label->set_anchor_and_margin(MARGIN_TOP, Control::ANCHOR_BEGIN, ttp->get_margin(MARGIN_TOP));
 		gui.tooltip_label->set_anchor_and_margin(MARGIN_RIGHT, Control::ANCHOR_END, -ttp->get_margin(MARGIN_RIGHT));
 		gui.tooltip_label->set_anchor_and_margin(MARGIN_BOTTOM, Control::ANCHOR_END, -ttp->get_margin(MARGIN_BOTTOM));
-		gui.tooltip_label->set_text(tooltip.strip_edges());
+		gui.tooltip_label->set_text(tooltip);
 	}
 
 	rp->add_child(gui.tooltip_popup);
@@ -1714,6 +1699,8 @@ bool Viewport::_gui_drop(Control *p_at_control, Point2 p_at_pos, bool p_just_che
 }
 
 void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
+
+	ERR_FAIL_COND(p_event.is_null())
 
 	//?
 	/*
@@ -2302,32 +2289,34 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 		if (from && p_event->is_pressed()) {
 			Control *next = NULL;
 
-			if (p_event->is_action_pressed("ui_focus_next")) {
+			Input *input = Input::get_singleton();
+
+			if (p_event->is_action_pressed("ui_focus_next") && input->is_action_just_pressed("ui_focus_next")) {
 
 				next = from->find_next_valid_focus();
 			}
 
-			if (p_event->is_action_pressed("ui_focus_prev")) {
+			if (p_event->is_action_pressed("ui_focus_prev") && input->is_action_just_pressed("ui_focus_prev")) {
 
 				next = from->find_prev_valid_focus();
 			}
 
-			if (!mods && p_event->is_action_pressed("ui_up")) {
+			if (!mods && p_event->is_action_pressed("ui_up") && input->is_action_just_pressed("ui_up")) {
 
 				next = from->_get_focus_neighbour(MARGIN_TOP);
 			}
 
-			if (!mods && p_event->is_action_pressed("ui_left")) {
+			if (!mods && p_event->is_action_pressed("ui_left") && input->is_action_just_pressed("ui_left")) {
 
 				next = from->_get_focus_neighbour(MARGIN_LEFT);
 			}
 
-			if (!mods && p_event->is_action_pressed("ui_right")) {
+			if (!mods && p_event->is_action_pressed("ui_right") && input->is_action_just_pressed("ui_right")) {
 
 				next = from->_get_focus_neighbour(MARGIN_RIGHT);
 			}
 
-			if (!mods && p_event->is_action_pressed("ui_down")) {
+			if (!mods && p_event->is_action_pressed("ui_down") && input->is_action_just_pressed("ui_down")) {
 
 				next = from->_get_focus_neighbour(MARGIN_BOTTOM);
 			}
@@ -2404,8 +2393,7 @@ void Viewport::_gui_remove_from_modal_stack(List<Control *>::Element *MI, Object
 
 void Viewport::_gui_force_drag(Control *p_base, const Variant &p_data, Control *p_control) {
 
-	ERR_EXPLAIN("Drag data must be a value");
-	ERR_FAIL_COND(p_data.get_type() == Variant::NIL);
+	ERR_FAIL_COND_MSG(p_data.get_type() == Variant::NIL, "Drag data must be a value.");
 
 	gui.dragging = true;
 	gui.drag_data = p_data;
@@ -2590,7 +2578,7 @@ void Viewport::_drop_physics_mouseover() {
 
 List<Control *>::Element *Viewport::_gui_show_modal(Control *p_control) {
 
-	gui.modal_stack.push_back(p_control);
+	List<Control *>::Element *node = gui.modal_stack.push_back(p_control);
 	if (gui.key_focus)
 		p_control->_modal_set_prev_focus_owner(gui.key_focus->get_instance_id());
 	else
@@ -2601,7 +2589,7 @@ List<Control *>::Element *Viewport::_gui_show_modal(Control *p_control) {
 		_drop_mouse_focus();
 	}
 
-	return gui.modal_stack.back();
+	return node;
 }
 
 Control *Viewport::_gui_get_focus_owner() {
@@ -2722,11 +2710,6 @@ void Viewport::set_use_own_world(bool p_world) {
 	if (is_inside_tree())
 		_propagate_exit_world(this);
 
-#ifndef _3D_DISABLED
-	if (find_world().is_valid() && camera)
-		camera->notification(Camera::NOTIFICATION_LOST_CURRENT);
-#endif
-
 	if (!p_world)
 		own_world = Ref<World>();
 	else
@@ -2734,13 +2717,6 @@ void Viewport::set_use_own_world(bool p_world) {
 
 	if (is_inside_tree())
 		_propagate_enter_world(this);
-
-#ifndef _3D_DISABLED
-	if (find_world().is_valid() && camera)
-		camera->notification(Camera::NOTIFICATION_BECAME_CURRENT);
-#endif
-
-	//propagate exit
 
 	if (is_inside_tree()) {
 		VisualServer::get_singleton()->viewport_set_scenario(viewport, find_world()->get_scenario());
@@ -2763,6 +2739,19 @@ void Viewport::set_attach_to_screen_rect(const Rect2 &p_rect) {
 Rect2 Viewport::get_attach_to_screen_rect() const {
 
 	return to_screen_rect;
+}
+
+void Viewport::set_use_render_direct_to_screen(bool p_render_direct_to_screen) {
+
+	if (p_render_direct_to_screen == render_direct_to_screen)
+		return;
+
+	render_direct_to_screen = p_render_direct_to_screen;
+	VS::get_singleton()->viewport_set_render_direct_to_screen(viewport, p_render_direct_to_screen);
+}
+
+bool Viewport::is_using_render_direct_to_screen() const {
+	return render_direct_to_screen;
 }
 
 void Viewport::set_physics_object_picking(bool p_enable) {
@@ -3030,6 +3019,8 @@ void Viewport::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_as_audio_listener_2d", "enable"), &Viewport::set_as_audio_listener_2d);
 	ClassDB::bind_method(D_METHOD("is_audio_listener_2d"), &Viewport::is_audio_listener_2d);
 	ClassDB::bind_method(D_METHOD("set_attach_to_screen_rect", "rect"), &Viewport::set_attach_to_screen_rect);
+	ClassDB::bind_method(D_METHOD("set_use_render_direct_to_screen", "enable"), &Viewport::set_use_render_direct_to_screen);
+	ClassDB::bind_method(D_METHOD("is_using_render_direct_to_screen"), &Viewport::is_using_render_direct_to_screen);
 
 	ClassDB::bind_method(D_METHOD("get_mouse_position"), &Viewport::get_mouse_position);
 	ClassDB::bind_method(D_METHOD("warp_mouse", "to_position"), &Viewport::warp_mouse);
@@ -3073,6 +3064,7 @@ void Viewport::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "arvr"), "set_use_arvr", "use_arvr");
 
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "size"), "set_size", "get_size");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "size_override_stretch"), "set_size_override_stretch", "is_size_override_stretch_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "own_world"), "set_use_own_world", "is_using_own_world");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "world", PROPERTY_HINT_RESOURCE_TYPE, "World"), "set_world", "get_world");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "world_2d", PROPERTY_HINT_RESOURCE_TYPE, "World2D", 0), "set_world_2d", "get_world_2d");
@@ -3084,6 +3076,7 @@ void Viewport::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "disable_3d"), "set_disable_3d", "is_3d_disabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "keep_3d_linear"), "set_keep_3d_linear", "get_keep_3d_linear");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "usage", PROPERTY_HINT_ENUM, "2D,2D No-Sampling,3D,3D No-Effects"), "set_usage", "get_usage");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "render_direct_to_screen"), "set_use_render_direct_to_screen", "is_using_render_direct_to_screen");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_draw", PROPERTY_HINT_ENUM, "Disabled,Unshaded,Overdraw,Wireframe"), "set_debug_draw", "get_debug_draw");
 	ADD_GROUP("Render Target", "render_target_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "render_target_v_flip"), "set_vflip", "get_vflip");
@@ -3165,6 +3158,8 @@ Viewport::Viewport() {
 	viewport = VisualServer::get_singleton()->viewport_create();
 	texture_rid = VisualServer::get_singleton()->viewport_get_texture(viewport);
 	texture_flags = 0;
+
+	render_direct_to_screen = false;
 
 	default_texture.instance();
 	default_texture->vp = const_cast<Viewport *>(this);

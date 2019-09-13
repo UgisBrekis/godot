@@ -40,7 +40,7 @@ class SyntaxHighlighter;
 
 class TextEdit : public Control {
 
-	GDCLASS(TextEdit, Control)
+	GDCLASS(TextEdit, Control);
 
 public:
 	struct HighlighterInfo {
@@ -184,7 +184,8 @@ private:
 		Color line_number_color;
 		Color safe_line_number_color;
 		Color font_color;
-		Color font_selected_color;
+		Color font_color_selected;
+		Color font_color_readonly;
 		Color keyword_color;
 		Color number_color;
 		Color function_color;
@@ -210,9 +211,11 @@ private:
 		int breakpoint_gutter_width;
 		int fold_gutter_width;
 		int info_gutter_width;
+		int minimap_width;
 	} cache;
 
 	Map<int, int> color_region_cache;
+	Map<int, Map<int, HighlighterInfo> > syntax_highlighting_cache;
 
 	struct TextOperation {
 
@@ -254,11 +257,11 @@ private:
 
 	Set<String> completion_prefixes;
 	bool completion_enabled;
-	Vector<String> completion_strings;
-	Vector<String> completion_options;
+	List<ScriptCodeCompletionOption> completion_sources;
+	Vector<ScriptCodeCompletionOption> completion_options;
 	bool completion_active;
 	bool completion_forced;
-	String completion_current;
+	ScriptCodeCompletionOption completion_current;
 	String completion_base;
 	int completion_index;
 	Rect2i completion_rect;
@@ -312,6 +315,10 @@ private:
 	bool hiding_enabled;
 	bool draw_info_gutter;
 	int info_gutter_width;
+	bool draw_minimap;
+	int minimap_width;
+	Point2 minimap_char_size;
+	int minimap_line_spacing;
 
 	bool highlight_all_occurrences;
 	bool scroll_past_end_of_file_enabled;
@@ -325,6 +332,12 @@ private:
 
 	bool smooth_scroll_enabled;
 	bool scrolling;
+	bool dragging_selection;
+	bool dragging_minimap;
+	bool can_drag_minimap;
+	bool minimap_clicked;
+	double minimap_scroll_ratio;
+	double minimap_scroll_click_pos;
 	float target_v_scroll;
 	float v_scroll_speed;
 
@@ -358,6 +371,8 @@ private:
 
 	int get_visible_rows() const;
 	int get_total_visible_rows() const;
+
+	int _get_minimap_visible_rows() const;
 
 	void update_cursor_wrap_offset();
 	void _update_wrap_at();
@@ -394,7 +409,8 @@ private:
 	void _update_selection_mode_word();
 	void _update_selection_mode_line();
 
-	void _uncomment_line(int p_line);
+	void _update_minimap_click();
+	void _update_minimap_drag();
 	void _scroll_up(real_t p_delta);
 	void _scroll_down(real_t p_delta);
 
@@ -406,6 +422,7 @@ private:
 
 	//void mouse_motion(const Point& p_pos, const Point& p_rel, int p_button_mask);
 	Size2 get_minimum_size() const;
+	int _get_control_height() const;
 
 	int get_row_height() const;
 
@@ -436,6 +453,9 @@ private:
 	void _cancel_code_hint();
 	void _confirm_completion();
 	void _update_completion_candidates();
+
+	int _calculate_spaces_till_next_left_indent(int column);
+	int _calculate_spaces_till_next_right_indent(int column);
 
 protected:
 	virtual String get_tooltip(const Point2 &p_pos) const;
@@ -481,6 +501,7 @@ public:
 	virtual CursorShape get_cursor_shape(const Point2 &p_pos = Point2i()) const;
 
 	void _get_mouse_pos(const Point2i &p_mouse, int &r_row, int &r_col) const;
+	void _get_minimap_mouse_row(const Point2i &p_mouse, int &r_row) const;
 
 	//void delete_char();
 	//void delete_line();
@@ -694,13 +715,19 @@ public:
 	void set_info_gutter_width(int p_gutter_width);
 	int get_info_gutter_width() const;
 
-	void set_hiding_enabled(int p_enabled);
-	int is_hiding_enabled() const;
+	void set_draw_minimap(bool p_draw);
+	bool is_drawing_minimap() const;
+
+	void set_minimap_width(int p_minimap_width);
+	int get_minimap_width() const;
+
+	void set_hiding_enabled(bool p_enabled);
+	bool is_hiding_enabled() const;
 
 	void set_tooltip_request_func(Object *p_obj, const StringName &p_function, const Variant &p_udata);
 
 	void set_completion(bool p_enabled, const Vector<String> &p_prefixes);
-	void code_complete(const Vector<String> &p_strings, bool p_forced = false);
+	void code_complete(const List<ScriptCodeCompletionOption> &p_strings, bool p_forced = false);
 	void set_code_hint(const String &p_hint);
 	void query_code_comple();
 
@@ -732,7 +759,7 @@ public:
 	virtual void _update_cache() = 0;
 	virtual Map<int, TextEdit::HighlighterInfo> _get_line_syntax_highlighting(int p_line) = 0;
 
-	virtual String get_name() = 0;
+	virtual String get_name() const = 0;
 	virtual List<String> get_supported_languages() = 0;
 
 	void set_text_editor(TextEdit *p_text_editor);

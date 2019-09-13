@@ -39,6 +39,7 @@
 #include "main/input_default.h"
 //#include "power_android.h"
 #include "servers/audio_server.h"
+#include "servers/camera_server.h"
 #include "servers/visual/rasterizer.h"
 
 class GodotJavaWrapper;
@@ -76,6 +77,8 @@ private:
 	bool use_16bits_fbo;
 
 	VisualServer *visual_server;
+
+	CameraServer *camera_server;
 
 	mutable String data_dir_cache;
 
@@ -139,7 +142,7 @@ public:
 
 	virtual Size2 get_window_size() const;
 
-	virtual String get_name();
+	virtual String get_name() const;
 	virtual MainLoop *get_main_loop() const;
 
 	virtual bool can_draw() const;
@@ -195,6 +198,7 @@ public:
 	virtual bool is_joy_known(int p_device);
 	virtual String get_joy_guid(int p_device) const;
 	void joy_connection_changed(int p_device, bool p_connected, String p_name);
+	void vibrate_handheld(int p_duration_ms);
 
 	virtual bool _check_internal_feature_support(const String &p_feature);
 	OS_Android(GodotJavaWrapper *p_godot_java, GodotIOJavaWrapper *p_godot_io_java, bool p_use_apk_expansion);

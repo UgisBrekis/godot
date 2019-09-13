@@ -88,6 +88,8 @@ Error OS_Server::initialize(const VideoMode &p_desired, int p_video_driver, int 
 	visual_server = memnew(VisualServerRaster);
 	visual_server->init();
 
+	camera_server = memnew(CameraServer);
+
 	AudioDriverManager::initialize(p_audio_driver);
 
 	input = memnew(InputDefault);
@@ -116,6 +118,8 @@ void OS_Server::finalize() {
 	memdelete(visual_server);
 
 	memdelete(input);
+
+	memdelete(camera_server);
 
 	memdelete(power_manager);
 
@@ -190,7 +194,7 @@ bool OS_Server::can_draw() const {
 	return false; //can never draw
 };
 
-String OS_Server::get_name() {
+String OS_Server::get_name() const {
 
 	return "Server";
 }

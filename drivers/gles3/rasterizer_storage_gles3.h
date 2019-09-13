@@ -297,6 +297,7 @@ public:
 				target(GL_TEXTURE_2D),
 				data_size(0),
 				compressed(false),
+				srgb(false),
 				total_data_size(0),
 				ignore_mipmaps(false),
 				mipmaps(0),
@@ -357,6 +358,7 @@ public:
 	virtual uint32_t texture_get_height(RID p_texture) const;
 	virtual uint32_t texture_get_depth(RID p_texture) const;
 	virtual void texture_set_size_override(RID p_texture, int p_width, int p_height, int p_depth);
+	virtual void texture_bind(RID p_texture, uint32_t p_texture_no);
 
 	virtual void texture_set_path(RID p_texture, const String &p_path);
 	virtual String texture_get_path(RID p_texture) const;
@@ -814,7 +816,7 @@ public:
 	virtual void multimesh_instance_set_transform(RID p_multimesh, int p_index, const Transform &p_transform);
 	virtual void multimesh_instance_set_transform_2d(RID p_multimesh, int p_index, const Transform2D &p_transform);
 	virtual void multimesh_instance_set_color(RID p_multimesh, int p_index, const Color &p_color);
-	virtual void multimesh_instance_set_custom_data(RID p_multimesh, int p_index, const Color &p_color);
+	virtual void multimesh_instance_set_custom_data(RID p_multimesh, int p_index, const Color &p_custom_data);
 
 	virtual RID multimesh_get_mesh(RID p_multimesh) const;
 
@@ -1394,6 +1396,7 @@ public:
 	void _render_target_allocate(RenderTarget *rt);
 
 	virtual RID render_target_create();
+	virtual void render_target_set_position(RID p_render_target, int p_x, int p_y);
 	virtual void render_target_set_size(RID p_render_target, int p_width, int p_height);
 	virtual RID render_target_get_texture(RID p_render_target) const;
 	virtual void render_target_set_external_texture(RID p_render_target, unsigned int p_texture_id);

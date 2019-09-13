@@ -96,7 +96,7 @@ String EditorFileSystemDirectory::get_path() const {
 	String p;
 	const EditorFileSystemDirectory *d = this;
 	while (d->parent) {
-		p = d->name + "/" + p;
+		p = d->name.plus_file(p);
 		d = d->parent;
 	}
 
@@ -108,7 +108,7 @@ String EditorFileSystemDirectory::get_file_path(int p_idx) const {
 	String file = get_file(p_idx);
 	const EditorFileSystemDirectory *d = this;
 	while (d->parent) {
-		file = d->name + "/" + file;
+		file = d->name.plus_file(file);
 		d = d->parent;
 	}
 
@@ -673,12 +673,11 @@ void EditorFileSystem::_scan_new_dir(EditorFileSystemDirectory *p_dir, DirAccess
 	da->list_dir_begin();
 	while (true) {
 
-		bool isdir;
-		String f = da->get_next(&isdir);
+		String f = da->get_next();
 		if (f == "")
 			break;
 
-		if (isdir) {
+		if (da->current_is_dir()) {
 
 			if (f.begins_with(".")) //ignore hidden and . / ..
 				continue;
@@ -844,7 +843,7 @@ void EditorFileSystem::_scan_fs_changes(EditorFileSystemDirectory *p_dir, const 
 	bool updated_dir = false;
 	String cd = p_dir->get_path();
 
-	if (current_mtime != p_dir->modified_time || using_fat_32) {
+	if (current_mtime != p_dir->modified_time || using_fat32_or_exfat) {
 
 		updated_dir = true;
 		p_dir->modified_time = current_mtime;
@@ -870,12 +869,11 @@ void EditorFileSystem::_scan_fs_changes(EditorFileSystemDirectory *p_dir, const 
 		da->list_dir_begin();
 		while (true) {
 
-			bool isdir;
-			String f = da->get_next(&isdir);
+			String f = da->get_next();
 			if (f == "")
 				break;
 
-			if (isdir) {
+			if (da->current_is_dir()) {
 
 				if (f.begins_with(".")) //ignore hidden and . / ..
 					continue;
@@ -1290,13 +1288,7 @@ bool EditorFileSystem::_find_file(const String &p_file, EditorFileSystemDirector
 	r_file_pos = cpos;
 	*r_d = fs;
 
-	if (cpos != -1) {
-
-		return true;
-	} else {
-
-		return false;
-	}
+	return cpos != -1;
 }
 
 String EditorFileSystem::get_file_type(const String &p_file) const {
@@ -1604,7 +1596,7 @@ Error EditorFileSystem::_reimport_group(const String &p_group_file, const Vector
 	//all went well, overwrite config files with proper remaps and md5s
 	for (Map<String, Map<StringName, Variant> >::Element *E = source_file_options.front(); E; E = E->next()) {
 
-		String file = E->key();
+		const String &file = E->key();
 		String base_path = ResourceFormatImporter::get_singleton()->get_import_base_path(file);
 		FileAccessRef f = FileAccess::open(file + ".import", FileAccess::WRITE);
 		ERR_FAIL_COND_V(!f, ERR_FILE_CANT_OPEN);
@@ -1938,8 +1930,7 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 			Error err = da->make_dir(".import");
 			if (err) {
 				memdelete(da);
-				ERR_EXPLAIN("Failed to create 'res://.import' folder.");
-				ERR_FAIL_COND(err != OK);
+				ERR_FAIL_MSG("Failed to create 'res://.import' folder.");
 			}
 		}
 		memdelete(da);
@@ -2140,8 +2131,8 @@ EditorFileSystem::EditorFileSystem() {
 	if (da->change_dir("res://.import") != OK) {
 		da->make_dir("res://.import");
 	}
-	//this should probably also work on Unix and use the string it returns for FAT32
-	using_fat_32 = da->get_filesystem_type() == "FAT32";
+	// This should probably also work on Unix and use the string it returns for FAT32 or exFAT
+	using_fat32_or_exfat = (da->get_filesystem_type() == "FAT32" || da->get_filesystem_type() == "exFAT");
 	memdelete(da);
 
 	scan_total = 0;

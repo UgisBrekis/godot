@@ -61,7 +61,7 @@ String ARVRCamera::get_configuration_warning() const {
 	// must be child node of ARVROrigin!
 	ARVROrigin *origin = Object::cast_to<ARVROrigin>(get_parent());
 	if (origin == NULL) {
-		return TTR("ARVRCamera must have an ARVROrigin node as its parent");
+		return TTR("ARVRCamera must have an ARVROrigin node as its parent.");
 	};
 
 	return String();
@@ -78,10 +78,7 @@ Vector3 ARVRCamera::project_local_ray_normal(const Point2 &p_pos) const {
 		return Camera::project_local_ray_normal(p_pos);
 	}
 
-	if (!is_inside_tree()) {
-		ERR_EXPLAIN("Camera is not inside scene.");
-		ERR_FAIL_COND_V(!is_inside_tree(), Vector3());
-	};
+	ERR_FAIL_COND_V_MSG(!is_inside_tree(), Vector3(), "Camera is not inside scene.");
 
 	Size2 viewport_size = get_viewport()->get_camera_rect_size();
 	Vector2 cpos = get_viewport()->get_camera_coords(p_pos);
@@ -106,10 +103,7 @@ Point2 ARVRCamera::unproject_position(const Vector3 &p_pos) const {
 		return Camera::unproject_position(p_pos);
 	}
 
-	if (!is_inside_tree()) {
-		ERR_EXPLAIN("Camera is not inside scene.");
-		ERR_FAIL_COND_V(!is_inside_tree(), Vector2());
-	};
+	ERR_FAIL_COND_V_MSG(!is_inside_tree(), Vector2(), "Camera is not inside scene.");
 
 	Size2 viewport_size = get_viewport()->get_visible_rect().size;
 
@@ -127,7 +121,7 @@ Point2 ARVRCamera::unproject_position(const Vector3 &p_pos) const {
 	return res;
 };
 
-Vector3 ARVRCamera::project_position(const Point2 &p_point) const {
+Vector3 ARVRCamera::project_position(const Point2 &p_point, float p_z_depth) const {
 	// get our ARVRServer
 	ARVRServer *arvr_server = ARVRServer::get_singleton();
 	ERR_FAIL_NULL_V(arvr_server, Vector3());
@@ -135,13 +129,10 @@ Vector3 ARVRCamera::project_position(const Point2 &p_point) const {
 	Ref<ARVRInterface> arvr_interface = arvr_server->get_primary_interface();
 	if (arvr_interface.is_null()) {
 		// we might be in the editor or have VR turned off, just call superclass
-		return Camera::project_position(p_point);
+		return Camera::project_position(p_point, p_z_depth);
 	}
 
-	if (!is_inside_tree()) {
-		ERR_EXPLAIN("Camera is not inside scene.");
-		ERR_FAIL_COND_V(!is_inside_tree(), Vector3());
-	};
+	ERR_FAIL_COND_V_MSG(!is_inside_tree(), Vector3(), "Camera is not inside scene.");
 
 	Size2 viewport_size = get_viewport()->get_visible_rect().size;
 
@@ -155,7 +146,7 @@ Vector3 ARVRCamera::project_position(const Point2 &p_point) const {
 	point.y = (1.0 - (p_point.y / viewport_size.y)) * 2.0 - 1.0;
 	point *= vp_size;
 
-	Vector3 p(point.x, point.y, -get_znear());
+	Vector3 p(point.x, point.y, -p_z_depth);
 
 	return get_camera_transform().xform(p);
 };
@@ -264,6 +255,7 @@ void ARVRController::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_rumble"), &ARVRController::get_rumble);
 	ClassDB::bind_method(D_METHOD("set_rumble", "rumble"), &ARVRController::set_rumble);
 	ADD_PROPERTY(PropertyInfo(Variant::REAL, "rumble", PROPERTY_HINT_RANGE, "0.0,1.0,0.01"), "set_rumble", "get_rumble");
+	ADD_PROPERTY_DEFAULT("rumble", 0.0);
 
 	ClassDB::bind_method(D_METHOD("get_mesh"), &ARVRController::get_mesh);
 
@@ -390,7 +382,7 @@ String ARVRController::get_configuration_warning() const {
 };
 
 ARVRController::ARVRController() {
-	controller_id = 0;
+	controller_id = 1;
 	is_active = true;
 	button_states = 0;
 };
@@ -530,7 +522,7 @@ Ref<Mesh> ARVRAnchor::get_mesh() const {
 }
 
 ARVRAnchor::ARVRAnchor() {
-	anchor_id = 0;
+	anchor_id = 1;
 	is_active = true;
 };
 

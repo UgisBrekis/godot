@@ -38,9 +38,6 @@
 #include "visual_server_globals.h"
 #include "visual_server_scene.h"
 #include "visual_server_viewport.h"
-/**
-	@author Juan Linietsky <reduzio@gmail.com>
-*/
 
 class VisualServerRaster : public VisualServer {
 
@@ -159,6 +156,7 @@ public:
 	BIND1RC(uint32_t, texture_get_height, RID)
 	BIND1RC(uint32_t, texture_get_depth, RID)
 	BIND4(texture_set_size_override, RID, int, int, int)
+	BIND2(texture_bind, RID, uint32_t)
 
 	BIND3(texture_set_detect_3d_callback, RID, TextureDetectCallback, void *)
 	BIND3(texture_set_detect_srgb_callback, RID, TextureDetectCallback, void *)
@@ -454,6 +452,7 @@ public:
 	BIND2(viewport_set_clear_mode, RID, ViewportClearMode)
 
 	BIND3(viewport_attach_to_screen, RID, const Rect2 &, int)
+	BIND2(viewport_set_render_direct_to_screen, RID, bool)
 	BIND1(viewport_detach, RID)
 
 	BIND2(viewport_set_update_mode, RID, ViewportUpdateMode)
@@ -502,6 +501,7 @@ public:
 	BIND2(environment_set_bg_energy, RID, float)
 	BIND2(environment_set_canvas_max_layer, RID, int)
 	BIND4(environment_set_ambient_light, RID, const Color &, float, float)
+	BIND2(environment_set_camera_feed_id, RID, int)
 	BIND7(environment_set_ssr, RID, bool, int, float, float, float, bool)
 	BIND13(environment_set_ssao, RID, bool, float, float, float, float, float, float, float, const Color &, EnvironmentSSAOQuality, EnvironmentSSAOBlur, float)
 
@@ -684,7 +684,7 @@ public:
 
 	/* TESTING */
 
-	virtual void set_boot_image(const Ref<Image> &p_image, const Color &p_color, bool p_scale);
+	virtual void set_boot_image(const Ref<Image> &p_image, const Color &p_color, bool p_scale, bool p_use_filter = true);
 	virtual void set_default_clear_color(const Color &p_color);
 
 	virtual bool has_feature(Features p_feature) const;

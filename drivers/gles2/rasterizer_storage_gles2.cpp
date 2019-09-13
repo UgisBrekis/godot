@@ -91,7 +91,7 @@ GLuint RasterizerStorageGLES2::system_fbo = 0;
 //void *glRenderbufferStorageMultisampleAPPLE;
 //void *glResolveMultisampleFramebufferAPPLE;
 #define glRenderbufferStorageMultisample glRenderbufferStorageMultisampleAPPLE
-#else
+#elif ANDROID_ENABLED
 
 #include <GLES2/gl2ext.h>
 PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC glRenderbufferStorageMultisampleEXT;
@@ -807,11 +807,11 @@ Ref<Image> RasterizerStorageGLES2::texture_get_data(RID p_texture, int p_layer) 
 		}
 	}
 
-	wb = PoolVector<uint8_t>::Write();
+	wb.release();
 
 	data.resize(data_size);
 
-	Image *img = memnew(Image(texture->alloc_width, texture->alloc_height, texture->mipmaps > 1 ? true : false, real_format, data));
+	Image *img = memnew(Image(texture->alloc_width, texture->alloc_height, texture->mipmaps > 1, real_format, data));
 
 	return Ref<Image>(img);
 #else
@@ -871,7 +871,7 @@ Ref<Image> RasterizerStorageGLES2::texture_get_data(RID p_texture, int p_layer) 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glDeleteFramebuffers(1, &temp_framebuffer);
 
-	wb = PoolVector<uint8_t>::Write();
+	wb.release();
 
 	data.resize(data_size);
 
@@ -966,6 +966,15 @@ uint32_t RasterizerStorageGLES2::texture_get_texid(RID p_texture) const {
 	ERR_FAIL_COND_V(!texture, 0);
 
 	return texture->tex_id;
+}
+
+void RasterizerStorageGLES2::texture_bind(RID p_texture, uint32_t p_texture_no) {
+	Texture *texture = texture_owner.getornull(p_texture);
+
+	ERR_FAIL_COND(!texture);
+
+	glActiveTexture(GL_TEXTURE0 + p_texture_no);
+	glBindTexture(texture->target, texture->tex_id);
 }
 
 uint32_t RasterizerStorageGLES2::texture_get_width(RID p_texture) const {
@@ -1561,7 +1570,7 @@ void RasterizerStorageGLES2::shader_get_param_list(RID p_shader, List<PropertyIn
 
 				if (u.hint == ShaderLanguage::ShaderNode::Uniform::HINT_RANGE) {
 					pi.hint = PROPERTY_HINT_RANGE;
-					pi.hint_string = rtos(u.hint_range[0]) + "," + rtos(u.hint_range[1]);
+					pi.hint_string = rtos(u.hint_range[0]) + "," + rtos(u.hint_range[1]) + "," + rtos(u.hint_range[2]);
 				}
 			} break;
 
@@ -2146,8 +2155,8 @@ static PoolVector<uint8_t> _unpack_half_floats(const PoolVector<uint8_t> &array,
 		dst_offset += dst_size[i];
 	}
 
-	r = PoolVector<uint8_t>::Read();
-	w = PoolVector<uint8_t>::Write();
+	r.release();
+	w.release();
 
 	return ret;
 }
@@ -2162,8 +2171,7 @@ void RasterizerStorageGLES2::mesh_add_surface(RID p_mesh, uint32_t p_format, VS:
 	//must have index and bones, both.
 	{
 		uint32_t bones_weight = VS::ARRAY_FORMAT_BONES | VS::ARRAY_FORMAT_WEIGHTS;
-		ERR_EXPLAIN("Array must have both bones and weights in format or none.");
-		ERR_FAIL_COND((p_format & bones_weight) && (p_format & bones_weight) != bones_weight);
+		ERR_FAIL_COND_MSG((p_format & bones_weight) && (p_format & bones_weight) != bones_weight, "Array must have both bones and weights in format or none.");
 	}
 
 	//bool has_morph = p_blend_shapes.size();
@@ -2418,6 +2426,18 @@ void RasterizerStorageGLES2::mesh_add_surface(RID p_mesh, uint32_t p_format, VS:
 	}
 	surface->data = array;
 	surface->index_data = p_index_array;
+#else
+	// Even on non-tools builds, a copy of the surface->data is needed in certain circumstances.
+	// Rigged meshes using the USE_SKELETON_SOFTWARE path need to read bone data
+	// from surface->data.
+
+	// if USE_SKELETON_SOFTWARE is active
+	if (!config.float_texture_supported) {
+		// if this geometry is used specifically for skinning
+		if (p_format & (VS::ARRAY_FORMAT_BONES | VS::ARRAY_FORMAT_WEIGHTS))
+			surface->data = array;
+	}
+	// An alternative is to always make a copy of surface->data.
 #endif
 
 	surface->total_data_size += surface->array_byte_size + surface->index_array_byte_size;
@@ -3476,6 +3496,8 @@ RID RasterizerStorageGLES2::skeleton_create() {
 
 	Skeleton *skeleton = memnew(Skeleton);
 
+	glGenTextures(1, &skeleton->tex_id);
+
 	return skeleton_owner.make_rid(skeleton);
 }
 
@@ -3493,7 +3515,6 @@ void RasterizerStorageGLES2::skeleton_allocate(RID p_skeleton, int p_bones, bool
 	skeleton->use_2d = p_2d_skeleton;
 
 	if (config.float_texture_supported) {
-		glGenTextures(1, &skeleton->tex_id);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, skeleton->tex_id);
@@ -3955,20 +3976,19 @@ AABB RasterizerStorageGLES2::light_get_aabb(RID p_light) const {
 			float len = light->param[VS::LIGHT_PARAM_RANGE];
 			float size = Math::tan(Math::deg2rad(light->param[VS::LIGHT_PARAM_SPOT_ANGLE])) * len;
 			return AABB(Vector3(-size, -size, -len), Vector3(size * 2, size * 2, len));
-		} break;
+		};
 
 		case VS::LIGHT_OMNI: {
 			float r = light->param[VS::LIGHT_PARAM_RANGE];
 			return AABB(-Vector3(r, r, r), Vector3(r, r, r) * 2);
-		} break;
+		};
 
 		case VS::LIGHT_DIRECTIONAL: {
 			return AABB();
-		} break;
+		};
 	}
 
 	ERR_FAIL_V(AABB());
-	return AABB();
 }
 
 /* PROBE API */
@@ -4505,9 +4525,7 @@ void RasterizerStorageGLES2::instance_add_dependency(RID p_base, RasterizerScene
 			ERR_FAIL_COND(!inst);
 		} break;
 		default: {
-			if (!inst) {
-				ERR_FAIL();
-			}
+			ERR_FAIL();
 		}
 	}
 
@@ -4552,14 +4570,9 @@ void RasterizerStorageGLES2::instance_remove_dependency(RID p_base, RasterizerSc
 			ERR_FAIL_COND(!inst);
 		} break;
 		default: {
-
-			if (!inst) {
-				ERR_FAIL();
-			}
+			ERR_FAIL();
 		}
 	}
-
-	ERR_FAIL_COND(!inst);
 
 	inst->instance_list.remove(&p_instance->dependency_item);
 }
@@ -4568,8 +4581,15 @@ void RasterizerStorageGLES2::instance_remove_dependency(RID p_base, RasterizerSc
 
 void RasterizerStorageGLES2::_render_target_allocate(RenderTarget *rt) {
 
+	// do not allocate a render target with no size
 	if (rt->width <= 0 || rt->height <= 0)
 		return;
+
+	// do not allocate a render target that is attached to the screen
+	if (rt->flags[RENDER_TARGET_DIRECT_TO_SCREEN]) {
+		rt->fbo = RasterizerStorageGLES2::system_fbo;
+		return;
+	}
 
 	GLuint color_internal_format;
 	GLuint color_format;
@@ -4681,6 +4701,7 @@ void RasterizerStorageGLES2::_render_target_allocate(RenderTarget *rt) {
 	/* BACK FBO */
 	/* For MSAA */
 
+#ifndef JAVASCRIPT_ENABLED
 	if (rt->msaa != VS::VIEWPORT_MSAA_DISABLED && config.multisample_supported) {
 
 		rt->multisample_active = true;
@@ -4712,7 +4733,7 @@ void RasterizerStorageGLES2::_render_target_allocate(RenderTarget *rt) {
 		glRenderbufferStorageMultisample(GL_RENDERBUFFER, msaa, color_internal_format, rt->width, rt->height);
 
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rt->multisample_color);
-#else
+#elif ANDROID_ENABLED
 		// Render to a texture in android
 		glGenTextures(1, &rt->multisample_color);
 		glBindTexture(GL_TEXTURE_2D, rt->multisample_color);
@@ -4736,7 +4757,9 @@ void RasterizerStorageGLES2::_render_target_allocate(RenderTarget *rt) {
 
 		glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
-	} else {
+	} else
+#endif
+	{
 		rt->multisample_active = false;
 	}
 
@@ -4778,6 +4801,10 @@ void RasterizerStorageGLES2::_render_target_allocate(RenderTarget *rt) {
 }
 
 void RasterizerStorageGLES2::_render_target_clear(RenderTarget *rt) {
+
+	// there is nothing to clear when DIRECT_TO_SCREEN is used
+	if (rt->flags[RENDER_TARGET_DIRECT_TO_SCREEN])
+		return;
 
 	if (rt->fbo) {
 		glDeleteFramebuffers(1, &rt->fbo);
@@ -4871,6 +4898,15 @@ RID RasterizerStorageGLES2::render_target_create() {
 	rt->texture = texture_owner.make_rid(t);
 
 	return render_target_owner.make_rid(rt);
+}
+
+void RasterizerStorageGLES2::render_target_set_position(RID p_render_target, int p_x, int p_y) {
+
+	RenderTarget *rt = render_target_owner.getornull(p_render_target);
+	ERR_FAIL_COND(!rt);
+
+	rt->x = p_x;
+	rt->y = p_y;
 }
 
 void RasterizerStorageGLES2::render_target_set_size(RID p_render_target, int p_width, int p_height) {
@@ -5001,6 +5037,14 @@ void RasterizerStorageGLES2::render_target_set_external_texture(RID p_render_tar
 void RasterizerStorageGLES2::render_target_set_flag(RID p_render_target, RenderTargetFlags p_flag, bool p_value) {
 	RenderTarget *rt = render_target_owner.getornull(p_render_target);
 	ERR_FAIL_COND(!rt);
+
+	// When setting DIRECT_TO_SCREEN, you need to clear before the value is set, but allocate after as
+	// those functions change how they operate depending on the value of DIRECT_TO_SCREEN
+	if (p_flag == RENDER_TARGET_DIRECT_TO_SCREEN && p_value != rt->flags[RENDER_TARGET_DIRECT_TO_SCREEN]) {
+		_render_target_clear(rt);
+		rt->flags[p_flag] = p_value;
+		_render_target_allocate(rt);
+	}
 
 	rt->flags[p_flag] = p_value;
 
@@ -5574,11 +5618,11 @@ void RasterizerStorageGLES2::initialize() {
 	//Manually load extensions for android and ios
 
 #ifdef IPHONE_ENABLED
-
+	// appears that IPhone doesn't need to dlopen TODO: test this rigorously before removing
 	//void *gles2_lib = dlopen(NULL, RTLD_LAZY);
 	//glRenderbufferStorageMultisampleAPPLE = dlsym(gles2_lib, "glRenderbufferStorageMultisampleAPPLE");
 	//glResolveMultisampleFramebufferAPPLE = dlsym(gles2_lib, "glResolveMultisampleFramebufferAPPLE");
-#else
+#elif ANDROID_ENABLED
 
 	void *gles2_lib = dlopen("libGLESv2.so", RTLD_LAZY);
 	glRenderbufferStorageMultisampleEXT = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC)dlsym(gles2_lib, "glRenderbufferStorageMultisampleEXT");
@@ -5647,21 +5691,49 @@ void RasterizerStorageGLES2::initialize() {
 
 		GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 
-		if (status == GL_FRAMEBUFFER_COMPLETE) {
-			config.depth_internalformat = GL_DEPTH_COMPONENT;
-			config.depth_type = GL_UNSIGNED_INT;
-		} else {
-			config.depth_internalformat = GL_DEPTH_COMPONENT16;
-			config.depth_type = GL_UNSIGNED_SHORT;
-		}
-
 		glBindFramebuffer(GL_FRAMEBUFFER, system_fbo);
 		glDeleteFramebuffers(1, &fbo);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		glDeleteTextures(1, &depth);
 
+		if (status == GL_FRAMEBUFFER_COMPLETE) {
+			config.depth_internalformat = GL_DEPTH_COMPONENT;
+			config.depth_type = GL_UNSIGNED_INT;
+		} else {
+			// If it fails, test to see if it supports a framebuffer texture using UNSIGNED_SHORT
+			// This is needed because many OSX devices don't support either UNSIGNED_INT or UNSIGNED_SHORT
+
+			config.depth_internalformat = GL_DEPTH_COMPONENT16;
+			config.depth_type = GL_UNSIGNED_SHORT;
+
+			glGenFramebuffers(1, &fbo);
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+			glGenTextures(1, &depth);
+			glBindTexture(GL_TEXTURE_2D, depth);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, 32, 32, 0, GL_DEPTH_COMPONENT16, GL_UNSIGNED_SHORT, NULL);
+
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth, 0);
+
+			status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+			if (status != GL_FRAMEBUFFER_COMPLETE) {
+				//if it fails again depth textures aren't supported, use rgba shadows and renderbuffer for depth
+				config.support_depth_texture = false;
+				config.use_rgba_3d_shadows = true;
+			}
+
+			glBindFramebuffer(GL_FRAMEBUFFER, system_fbo);
+			glDeleteFramebuffers(1, &fbo);
+			glBindTexture(GL_TEXTURE_2D, 0);
+			glDeleteTextures(1, &depth);
+		}
 	} else {
-		// Will use renderbuffer for depth
+		// Will use renderbuffer for depth, on mobile check for 24 bit depth support
 		if (config.extensions.has("GL_OES_depth24")) {
 			config.depth_internalformat = _DEPTH_COMPONENT24_OES;
 			config.depth_type = GL_UNSIGNED_INT;

@@ -36,10 +36,6 @@
 
 #include "core/math/quat.h"
 
-/**
-	@author Juan Linietsky <reduzio@gmail.com>
-*/
-
 class Basis {
 public:
 	Vector3 elements[3];
@@ -153,7 +149,7 @@ public:
 	int get_orthogonal_index() const;
 	void set_orthogonal_index(int p_index);
 
-	void set_diagonal(const Vector3 p_diag);
+	void set_diagonal(const Vector3 &p_diag);
 
 	bool is_orthogonal() const;
 	bool is_diagonal() const;

@@ -80,6 +80,7 @@ Error NetworkedMultiplayerENet::create_server(int p_port, int p_max_clients, int
 	ERR_FAIL_COND_V(p_out_bandwidth < 0, ERR_INVALID_PARAMETER);
 
 	ENetAddress address;
+	memset(&address, 0, sizeof(address));
 
 #ifdef GODOT_ENET
 	if (bind_ip.is_wildcard()) {
@@ -346,7 +347,7 @@ void NetworkedMultiplayerENet::poll() {
 
 					uint32_t *id = (uint32_t *)event.peer->data;
 
-					ERR_CONTINUE(event.packet->dataLength < 8)
+					ERR_CONTINUE(event.packet->dataLength < 8);
 
 					uint32_t source = decode_uint32(&event.packet->data[0]);
 					int target = decode_uint32(&event.packet->data[4]);
@@ -462,7 +463,7 @@ void NetworkedMultiplayerENet::disconnect_peer(int p_peer, bool now) {
 
 	ERR_FAIL_COND(!active);
 	ERR_FAIL_COND(!is_server());
-	ERR_FAIL_COND(!peer_map.has(p_peer))
+	ERR_FAIL_COND(!peer_map.has(p_peer));
 
 	if (now) {
 		enet_peer_disconnect_now(peer_map[p_peer], 0);
@@ -542,10 +543,7 @@ Error NetworkedMultiplayerENet::put_packet(const uint8_t *p_buffer, int p_buffer
 	if (target_peer != 0) {
 
 		E = peer_map.find(ABS(target_peer));
-		if (!E) {
-			ERR_EXPLAIN("Invalid Target Peer: " + itos(target_peer));
-			ERR_FAIL_V(ERR_INVALID_PARAMETER);
-		}
+		ERR_FAIL_COND_V_MSG(!E, ERR_INVALID_PARAMETER, "Invalid target peer: " + itos(target_peer) + ".");
 	}
 
 	ENetPacket *packet = enet_packet_create(NULL, p_buffer_size + 8, packet_flags);
@@ -793,11 +791,7 @@ int NetworkedMultiplayerENet::get_peer_port(int p_peer_id) const {
 void NetworkedMultiplayerENet::set_transfer_channel(int p_channel) {
 
 	ERR_FAIL_COND(p_channel < -1 || p_channel >= channel_count);
-
-	if (p_channel == SYSCH_CONFIG) {
-		ERR_EXPLAIN("Channel " + itos(SYSCH_CONFIG) + " is reserved");
-		ERR_FAIL();
-	}
+	ERR_FAIL_COND_MSG(p_channel == SYSCH_CONFIG, "Channel " + itos(SYSCH_CONFIG) + " is reserved.");
 	transfer_channel = p_channel;
 }
 
@@ -881,7 +875,9 @@ NetworkedMultiplayerENet::NetworkedMultiplayerENet() {
 
 NetworkedMultiplayerENet::~NetworkedMultiplayerENet() {
 
-	close_connection();
+	if (active) {
+		close_connection();
+	}
 }
 
 // Sets IP for ENet to bind when using create_server or create_client

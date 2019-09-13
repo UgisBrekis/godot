@@ -66,7 +66,7 @@ Size2 EditorProperty::get_minimum_size() const {
 
 	if (checkable) {
 		Ref<Texture> check = get_icon("checked", "CheckBox");
-		ms.width += check->get_width() + get_constant("hseparator", "Tree");
+		ms.width += check->get_width() + get_constant("hseparation", "CheckBox") + get_constant("hseparator", "Tree");
 	}
 
 	if (bottom_editor != NULL && bottom_editor->is_visible()) {
@@ -228,8 +228,7 @@ void EditorProperty::_notification(int p_what) {
 			}
 			check_rect = Rect2(ofs, ((size.height - checkbox->get_height()) / 2), checkbox->get_width(), checkbox->get_height());
 			draw_texture(checkbox, check_rect.position, color2);
-			ofs += get_constant("hseparator", "Tree");
-			ofs += checkbox->get_width();
+			ofs += get_constant("hseparator", "Tree") + checkbox->get_width() + get_constant("hseparation", "CheckBox");
 			text_limit -= ofs;
 		} else {
 			check_rect = Rect2();
@@ -379,7 +378,7 @@ bool EditorPropertyRevert::get_instanced_node_original_property(Node *p_node, co
 		node = node->get_owner();
 	}
 
-	if (!found) {
+	if (!found && node) {
 		//if not found, try default class value
 		Variant attempt = ClassDB::class_get_default_property_value(node->get_class_name(), p_prop);
 		if (attempt.get_type() != Variant::NIL) {
@@ -505,7 +504,7 @@ bool EditorProperty::use_keying_next() const {
 		PropertyInfo &p = I->get();
 
 		if (p.name == property) {
-			return p.hint == PROPERTY_HINT_SPRITE_FRAME;
+			return (p.usage & PROPERTY_USAGE_KEYING_INCREMENTS);
 		}
 	}
 
@@ -1045,7 +1044,6 @@ void EditorInspectorSection::_notification(int p_what) {
 		Ref<Font> font = get_font("font", "Tree");
 		Ref<Texture> arrow;
 
-#ifdef TOOLS_ENABLED
 		if (foldable) {
 			if (object->editor_is_section_unfolded(section)) {
 				arrow = get_icon("arrow_up", "Tree");
@@ -1053,7 +1051,6 @@ void EditorInspectorSection::_notification(int p_what) {
 				arrow = get_icon("arrow", "Tree");
 			}
 		}
-#endif
 
 		Size2 size = get_size();
 		Point2 offset;
@@ -1088,7 +1085,6 @@ void EditorInspectorSection::_notification(int p_what) {
 
 		Ref<Texture> arrow;
 
-#ifdef TOOLS_ENABLED
 		if (foldable) {
 			if (object->editor_is_section_unfolded(section)) {
 				arrow = get_icon("arrow_up", "Tree");
@@ -1096,7 +1092,6 @@ void EditorInspectorSection::_notification(int p_what) {
 				arrow = get_icon("arrow", "Tree");
 			}
 		}
-#endif
 
 		Ref<Font> font = get_font("font", "Tree");
 
@@ -1156,7 +1151,6 @@ void EditorInspectorSection::setup(const String &p_section, const String &p_labe
 		vbox_added = true;
 	}
 
-#ifdef TOOLS_ENABLED
 	if (foldable) {
 		_test_unfold();
 		if (object->editor_is_section_unfolded(section)) {
@@ -1165,7 +1159,6 @@ void EditorInspectorSection::setup(const String &p_section, const String &p_labe
 			vbox->hide();
 		}
 	}
-#endif
 }
 
 void EditorInspectorSection::_gui_input(const Ref<InputEvent> &p_event) {
@@ -1173,7 +1166,6 @@ void EditorInspectorSection::_gui_input(const Ref<InputEvent> &p_event) {
 	if (!foldable)
 		return;
 
-#ifdef TOOLS_ENABLED
 	Ref<InputEventMouseButton> mb = p_event;
 	if (mb.is_valid() && mb->is_pressed() && mb->get_button_index() == BUTTON_LEFT) {
 
@@ -1192,7 +1184,6 @@ void EditorInspectorSection::_gui_input(const Ref<InputEvent> &p_event) {
 			vbox->hide();
 		}
 	}
-#endif
 }
 
 VBoxContainer *EditorInspectorSection::get_vbox() {
@@ -1206,11 +1197,9 @@ void EditorInspectorSection::unfold() {
 
 	_test_unfold();
 
-#ifdef TOOLS_ENABLED
 	object->editor_set_section_unfold(section, true);
 	vbox->show();
 	update();
-#endif
 }
 
 void EditorInspectorSection::fold() {
@@ -1220,11 +1209,9 @@ void EditorInspectorSection::fold() {
 	if (!vbox_added)
 		return; //kinda pointless
 
-#ifdef TOOLS_ENABLED
 	object->editor_set_section_unfold(section, false);
 	vbox->hide();
 	update();
-#endif
 }
 
 void EditorInspectorSection::_bind_methods() {
@@ -1303,6 +1290,7 @@ void EditorInspector::remove_inspector_plugin(const Ref<EditorInspectorPlugin> &
 		}
 	}
 
+	ERR_FAIL_COND(idx == -1);
 	for (int i = idx; i < inspector_plugin_count - 1; i++) {
 		inspector_plugins[i] = inspector_plugins[i + 1];
 	}

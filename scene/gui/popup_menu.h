@@ -33,10 +33,6 @@
 
 #include "scene/gui/popup.h"
 
-/**
-	@author Juan Linietsky <reduzio@gmail.com>
-*/
-
 class PopupMenu : public Popup {
 
 	GDCLASS(PopupMenu, Popup);
@@ -111,6 +107,10 @@ class PopupMenu : public Popup {
 
 	void _ref_shortcut(Ref<ShortCut> p_sc);
 	void _unref_shortcut(Ref<ShortCut> p_sc);
+
+	bool allow_search;
+	uint64_t search_time_msec;
+	String search_string;
 
 protected:
 	virtual bool has_point(const Point2 &p_point) const;
@@ -205,6 +205,9 @@ public:
 
 	void set_submenu_popup_delay(float p_time);
 	float get_submenu_popup_delay() const;
+
+	void set_allow_search(bool p_allow);
+	bool get_allow_search() const;
 
 	virtual void popup(const Rect2 &p_bounds = Rect2());
 

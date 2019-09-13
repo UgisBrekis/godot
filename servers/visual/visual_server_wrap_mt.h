@@ -35,9 +35,6 @@
 #include "core/os/thread.h"
 #include "servers/visual_server.h"
 
-/**
-	@author Juan Linietsky <reduzio@gmail.com>
-*/
 class VisualServerWrapMT : public VisualServer {
 
 	// the real visual server
@@ -95,6 +92,7 @@ public:
 	FUNC1RC(uint32_t, texture_get_height, RID)
 	FUNC1RC(uint32_t, texture_get_depth, RID)
 	FUNC4(texture_set_size_override, RID, int, int, int)
+	FUNC2(texture_bind, RID, uint32_t)
 
 	FUNC3(texture_set_detect_3d_callback, RID, TextureDetectCallback, void *)
 	FUNC3(texture_set_detect_srgb_callback, RID, TextureDetectCallback, void *)
@@ -381,6 +379,7 @@ public:
 	FUNC2(viewport_set_clear_mode, RID, ViewportClearMode)
 
 	FUNC3(viewport_attach_to_screen, RID, const Rect2 &, int)
+	FUNC2(viewport_set_render_direct_to_screen, RID, bool)
 	FUNC1(viewport_detach, RID)
 
 	FUNC2(viewport_set_update_mode, RID, ViewportUpdateMode)
@@ -429,6 +428,7 @@ public:
 	FUNC2(environment_set_bg_energy, RID, float)
 	FUNC2(environment_set_canvas_max_layer, RID, int)
 	FUNC4(environment_set_ambient_light, RID, const Color &, float, float)
+	FUNC2(environment_set_camera_feed_id, RID, int)
 	FUNC7(environment_set_ssr, RID, bool, int, float, float, float, bool)
 	FUNC13(environment_set_ssao, RID, bool, float, float, float, float, float, float, float, const Color &, EnvironmentSSAOQuality, EnvironmentSSAOBlur, float)
 
@@ -601,7 +601,7 @@ public:
 		return visual_server->get_render_info(p_info);
 	}
 
-	FUNC3(set_boot_image, const Ref<Image> &, const Color &, bool)
+	FUNC4(set_boot_image, const Ref<Image> &, const Color &, bool, bool)
 	FUNC1(set_default_clear_color, const Color &)
 
 	FUNC0R(RID, get_test_cube)

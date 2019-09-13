@@ -31,10 +31,6 @@
 #ifndef OS_UNIX_H
 #define OS_UNIX_H
 
-/**
-	@author Juan Linietsky <reduzio@gmail.com>
-*/
-
 #ifdef UNIX_ENABLED
 
 #include "core/os/os.h"
@@ -76,7 +72,7 @@ public:
 
 	virtual Error set_cwd(const String &p_cwd);
 
-	virtual String get_name();
+	virtual String get_name() const;
 
 	virtual Date get_date(bool utc) const;
 	virtual Time get_time(bool utc) const;

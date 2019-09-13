@@ -218,12 +218,13 @@ void CollisionObject2D::shape_owner_set_transform(uint32_t p_owner, const Transf
 	ERR_FAIL_COND(!shapes.has(p_owner));
 
 	ShapeData &sd = shapes[p_owner];
+
 	sd.xform = p_transform;
 	for (int i = 0; i < sd.shapes.size(); i++) {
 		if (area) {
-			Physics2DServer::get_singleton()->area_set_shape_transform(rid, sd.shapes[i].index, p_transform);
+			Physics2DServer::get_singleton()->area_set_shape_transform(rid, sd.shapes[i].index, sd.xform);
 		} else {
-			Physics2DServer::get_singleton()->body_set_shape_transform(rid, sd.shapes[i].index, p_transform);
+			Physics2DServer::get_singleton()->body_set_shape_transform(rid, sd.shapes[i].index, sd.xform);
 		}
 	}
 }
@@ -375,11 +376,12 @@ void CollisionObject2D::set_only_update_transform_changes(bool p_enable) {
 void CollisionObject2D::_update_pickable() {
 	if (!is_inside_tree())
 		return;
-	bool pickable = this->pickable && is_inside_tree() && is_visible_in_tree();
+
+	bool is_pickable = pickable && is_visible_in_tree();
 	if (area)
-		Physics2DServer::get_singleton()->area_set_pickable(rid, pickable);
+		Physics2DServer::get_singleton()->area_set_pickable(rid, is_pickable);
 	else
-		Physics2DServer::get_singleton()->body_set_pickable(rid, pickable);
+		Physics2DServer::get_singleton()->body_set_pickable(rid, is_pickable);
 }
 
 String CollisionObject2D::get_configuration_warning() const {
@@ -387,8 +389,8 @@ String CollisionObject2D::get_configuration_warning() const {
 	String warning = Node2D::get_configuration_warning();
 
 	if (shapes.empty()) {
-		if (warning == String()) {
-			warning += "\n";
+		if (!warning.empty()) {
+			warning += "\n\n";
 		}
 		warning += TTR("This node has no shape, so it can't collide or interact with other objects.\nConsider adding a CollisionShape2D or CollisionPolygon2D as a child to define its shape.");
 	}

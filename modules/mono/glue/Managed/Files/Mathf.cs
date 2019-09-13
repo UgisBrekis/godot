@@ -44,9 +44,9 @@ namespace Godot
             return (real_t)Math.Atan(s);
         }
 
-        public static real_t Atan2(real_t x, real_t y)
+        public static real_t Atan2(real_t y, real_t x)
         {
-            return (real_t)Math.Atan2(x, y);
+            return (real_t)Math.Atan2(y, x);
         }
 
         public static Vector2 Cartesian2Polar(real_t x, real_t y)
@@ -158,6 +158,11 @@ namespace Godot
 
         public static bool IsEqualApprox(real_t a, real_t b)
         {
+            // Check for exact equality first, required to handle "infinity" values.
+            if (a == b) {
+                return true;
+            }
+            // Then check for approximate equality.
             real_t tolerance = Epsilon * Abs(a);
             if (tolerance < Epsilon) {
                 tolerance = Epsilon;
@@ -185,6 +190,12 @@ namespace Godot
             return from + (to - from) * weight;
         }
 
+        public static real_t LerpAngle(real_t from, real_t to, real_t weight) {
+            real_t difference = (to - from) % Mathf.Tau;
+            real_t distance = ((2 * difference) % Mathf.Tau) - difference;
+            return from + distance * weight;
+        }
+
         public static real_t Log(real_t s)
         {
             return (real_t)Math.Log(s);
@@ -208,6 +219,11 @@ namespace Godot
         public static real_t Min(real_t a, real_t b)
         {
             return a < b ? a : b;
+        }
+
+        public static real_t MoveToward(real_t from, real_t to, real_t delta)
+        {
+            return Abs(to - from) <= delta ? to : from + Sign(to - from) * delta;
         }
 
         public static int NearestPo2(int value)
@@ -325,14 +341,14 @@ namespace Godot
 
         public static int Wrap(int value, int min, int max)
         {
-            int rng = max - min;
-            return rng != 0 ? min + ((value - min) % rng + rng) % rng : min;
+            int range = max - min;
+            return range == 0 ? min : min + ((value - min) % range + range) % range;
         }
 
         public static real_t Wrap(real_t value, real_t min, real_t max)
         {
-            real_t rng = max - min;
-            return !IsEqualApprox(rng, default(real_t)) ? min + ((value - min) % rng + rng) % rng : min;
+            real_t range = max - min;
+            return IsZeroApprox(range) ? min : min + ((value - min) % range + range) % range;
         }
     }
 }

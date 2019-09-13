@@ -36,9 +36,6 @@
 #include "scene/resources/texture.h"
 #include "scene/resources/world_2d.h"
 #include "servers/visual_server.h"
-/**
-	@author Juan Linietsky <reduzio@gmail.com>
-*/
 
 class Camera;
 class Camera2D;
@@ -182,6 +179,7 @@ private:
 
 	Size2 size;
 	Rect2 to_screen_rect;
+	bool render_direct_to_screen;
 
 	RID contact_2d_debug;
 	RID contact_3d_debug_multimesh;
@@ -480,6 +478,9 @@ public:
 
 	void set_attach_to_screen_rect(const Rect2 &p_rect);
 	Rect2 get_attach_to_screen_rect() const;
+
+	void set_use_render_direct_to_screen(bool p_render_direct_to_screen);
+	bool is_using_render_direct_to_screen() const;
 
 	Vector2 get_mouse_position() const;
 	void warp_mouse(const Vector2 &p_pos);

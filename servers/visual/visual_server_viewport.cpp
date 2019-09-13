@@ -63,7 +63,10 @@ static Transform2D _canvas_get_transform(VisualServerViewport::Viewport *p_viewp
 }
 
 void VisualServerViewport::_draw_3d(Viewport *p_viewport, ARVRInterface::Eyes p_eye) {
-	Ref<ARVRInterface> arvr_interface = ARVRServer::get_singleton()->get_primary_interface();
+	Ref<ARVRInterface> arvr_interface;
+	if (ARVRServer::get_singleton() != NULL) {
+		arvr_interface = ARVRServer::get_singleton()->get_primary_interface();
+	}
 
 	if (p_viewport->use_arvr && arvr_interface.is_valid()) {
 		VSG::scene->render_camera(arvr_interface, p_eye, p_viewport->camera, p_viewport->scenario, p_viewport->size, p_viewport->shadow_atlas);
@@ -82,6 +85,7 @@ void VisualServerViewport::_draw_viewport(Viewport *p_viewport, ARVRInterface::E
 	if (!p_viewport->hide_canvas && !p_viewport->disable_environment && VSG::scene->scenario_owner.owns(p_viewport->scenario)) {
 
 		VisualServerScene::Scenario *scenario = VSG::scene->scenario_owner.get(p_viewport->scenario);
+		ERR_FAIL_COND(!scenario);
 		if (VSG::scene_render->is_environment(scenario->environment)) {
 			scenario_draw_canvas_bg = VSG::scene_render->environment_get_background(scenario->environment) == VS::ENV_BG_CANVAS;
 
@@ -253,8 +257,6 @@ void VisualServerViewport::_draw_viewport(Viewport *p_viewport, ARVRInterface::E
 			} else {
 				_draw_3d(p_viewport, p_eye);
 			}
-
-			scenario_draw_canvas_bg = false;
 		}
 
 		//VSG::canvas_render->canvas_debug_viewport_shadows(lights_with_shadow);
@@ -262,11 +264,16 @@ void VisualServerViewport::_draw_viewport(Viewport *p_viewport, ARVRInterface::E
 }
 
 void VisualServerViewport::draw_viewports() {
-	// get our arvr interface in case we need it
-	Ref<ARVRInterface> arvr_interface = ARVRServer::get_singleton()->get_primary_interface();
 
-	// process all our active interfaces
-	ARVRServer::get_singleton()->_process();
+	// get our arvr interface in case we need it
+	Ref<ARVRInterface> arvr_interface;
+
+	if (ARVRServer::get_singleton() != NULL) {
+		arvr_interface = ARVRServer::get_singleton()->get_primary_interface();
+
+		// process all our active interfaces
+		ARVRServer::get_singleton()->_process();
+	}
 
 	if (Engine::get_singleton()->is_editor_hint()) {
 		clear_color = GLOBAL_GET("rendering/environment/default_clear_color");
@@ -343,7 +350,7 @@ void VisualServerViewport::draw_viewports() {
 			vp->render_info[VS::VIEWPORT_RENDER_INFO_SURFACE_CHANGES_IN_FRAME] = VSG::storage->get_captured_render_info(VS::INFO_SURFACE_CHANGES_IN_FRAME);
 			vp->render_info[VS::VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME] = VSG::storage->get_captured_render_info(VS::INFO_DRAW_CALLS_IN_FRAME);
 
-			if (vp->viewport_to_screen_rect != Rect2()) {
+			if (vp->viewport_to_screen_rect != Rect2() && (!vp->viewport_render_direct_to_screen || !VSG::rasterizer->is_low_end())) {
 				//copy to screen if set as such
 				VSG::rasterizer->set_current_render_target(RID());
 				VSG::rasterizer->blit_render_target_to_screen(vp->render_target, vp->viewport_to_screen_rect, vp->viewport_to_screen);
@@ -368,6 +375,7 @@ RID VisualServerViewport::viewport_create() {
 	viewport->hide_canvas = false;
 	viewport->render_target = VSG::storage->render_target_create();
 	viewport->shadow_atlas = VSG::scene_render->shadow_atlas_create();
+	viewport->viewport_render_direct_to_screen = false;
 
 	return rid;
 }
@@ -424,13 +432,54 @@ void VisualServerViewport::viewport_attach_to_screen(RID p_viewport, const Rect2
 	Viewport *viewport = viewport_owner.getornull(p_viewport);
 	ERR_FAIL_COND(!viewport);
 
+	// If using GLES2 we can optimize this operation by rendering directly to system_fbo
+	// instead of rendering to fbo and copying to system_fbo after
+	if (VSG::rasterizer->is_low_end() && viewport->viewport_render_direct_to_screen) {
+
+		VSG::storage->render_target_set_size(viewport->render_target, p_rect.size.x, p_rect.size.y);
+		VSG::storage->render_target_set_position(viewport->render_target, p_rect.position.x, p_rect.position.y);
+	}
+
 	viewport->viewport_to_screen_rect = p_rect;
 	viewport->viewport_to_screen = p_screen;
 }
+
+void VisualServerViewport::viewport_set_render_direct_to_screen(RID p_viewport, bool p_enable) {
+	Viewport *viewport = viewport_owner.getornull(p_viewport);
+	ERR_FAIL_COND(!viewport);
+
+	if (p_enable == viewport->viewport_render_direct_to_screen)
+		return;
+
+	// if disabled, reset render_target size and position
+	if (!p_enable) {
+
+		VSG::storage->render_target_set_position(viewport->render_target, 0, 0);
+		VSG::storage->render_target_set_size(viewport->render_target, viewport->size.x, viewport->size.y);
+	}
+
+	VSG::storage->render_target_set_flag(viewport->render_target, RasterizerStorage::RENDER_TARGET_DIRECT_TO_SCREEN, p_enable);
+	viewport->viewport_render_direct_to_screen = p_enable;
+
+	// if attached to screen already, setup screen size and position, this needs to happen after setting flag to avoid an unneccesary buffer allocation
+	if (VSG::rasterizer->is_low_end() && viewport->viewport_to_screen_rect != Rect2() && p_enable) {
+
+		VSG::storage->render_target_set_size(viewport->render_target, viewport->viewport_to_screen_rect.size.x, viewport->viewport_to_screen_rect.size.y);
+		VSG::storage->render_target_set_position(viewport->render_target, viewport->viewport_to_screen_rect.position.x, viewport->viewport_to_screen_rect.position.y);
+	}
+}
+
 void VisualServerViewport::viewport_detach(RID p_viewport) {
 
 	Viewport *viewport = viewport_owner.getornull(p_viewport);
 	ERR_FAIL_COND(!viewport);
+
+	// if render_direct_to_screen was used, reset size and position
+	if (VSG::rasterizer->is_low_end() && viewport->viewport_render_direct_to_screen) {
+
+		VSG::storage->render_target_set_position(viewport->render_target, 0, 0);
+		VSG::storage->render_target_set_size(viewport->render_target, viewport->size.x, viewport->size.y);
+	}
 
 	viewport->viewport_to_screen_rect = Rect2();
 	viewport->viewport_to_screen = 0;

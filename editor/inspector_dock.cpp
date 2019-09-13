@@ -169,7 +169,7 @@ void InspectorDock::_save_resource(bool save_as) const {
 	uint32_t current = EditorNode::get_singleton()->get_editor_history()->get_current();
 	Object *current_obj = current > 0 ? ObjectDB::get_instance(current) : NULL;
 
-	ERR_FAIL_COND(!Object::cast_to<Resource>(current_obj))
+	ERR_FAIL_COND(!Object::cast_to<Resource>(current_obj));
 
 	RES current_res = RES(Object::cast_to<Resource>(current_obj));
 
@@ -183,7 +183,7 @@ void InspectorDock::_unref_resource() const {
 	uint32_t current = EditorNode::get_singleton()->get_editor_history()->get_current();
 	Object *current_obj = current > 0 ? ObjectDB::get_instance(current) : NULL;
 
-	ERR_FAIL_COND(!Object::cast_to<Resource>(current_obj))
+	ERR_FAIL_COND(!Object::cast_to<Resource>(current_obj));
 
 	RES current_res = RES(Object::cast_to<Resource>(current_obj));
 	current_res->set_path("");
@@ -194,7 +194,7 @@ void InspectorDock::_copy_resource() const {
 	uint32_t current = EditorNode::get_singleton()->get_editor_history()->get_current();
 	Object *current_obj = current > 0 ? ObjectDB::get_instance(current) : NULL;
 
-	ERR_FAIL_COND(!Object::cast_to<Resource>(current_obj))
+	ERR_FAIL_COND(!Object::cast_to<Resource>(current_obj));
 
 	RES current_res = RES(Object::cast_to<Resource>(current_obj));
 
@@ -407,6 +407,10 @@ void InspectorDock::update(Object *p_object) {
 		object_menu->set_disabled(true);
 		warning->hide();
 		search->set_editable(false);
+
+		editor_path->set_text("");
+		editor_path->set_tooltip("");
+		editor_path->set_icon(NULL);
 
 		return;
 	}
